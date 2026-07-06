@@ -1,0 +1,41 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+*.sqlite3
+db.sqlite3
+
+# ---- Django ----
+/backend/staticfiles/
+/backend/media/
+
+# ---- Node / Vite ----
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# ---- AI / 데이터 (대용량) ----
+/ai/data/**
+!/ai/data/.gitkeep
+*.pt
+*.pth
+*.ckpt
+*.csv
+*.parquet
+*.geojson
+
+# ---- 환경변수 / 시크릿 ----
+.env
+.env.*
+!.env.example
+
+# ---- OS / 에디터 ----
+.DS_Store
+.idea/
+.vscode/
+*.log

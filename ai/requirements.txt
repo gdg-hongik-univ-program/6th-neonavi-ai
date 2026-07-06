@@ -1,0 +1,7 @@
+torch>=2.2
+numpy>=1.26
+pandas>=2.2
+scikit-learn>=1.5
+geopandas>=1.0
+shapely>=2.0
+requests>=2.32
