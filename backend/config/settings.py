@@ -1,9 +1,15 @@
 """NeoNavi 백엔드 설정 (개발용 뼈대).
 배포 시: SECRET_KEY·DEBUG·ALLOWED_HOSTS·DATABASES를 환경변수로 분리할 것.
 """
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# 레포 루트를 path 에 추가 → `import ai.inference` 가능 (ai 를 라이브러리로 사용)
+REPO_ROOT = BASE_DIR.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 SECRET_KEY = 'dev-secret-key-change-me'
 DEBUG = True
