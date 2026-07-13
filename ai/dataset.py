@@ -12,7 +12,8 @@ import pyarrow.parquet as pq
 
 from . import labeling
 from .features import vectorize
-from .profiles import sample_profiles
+from .profiles import sample_profile
+from .recommender import weights as rule_weights
 from .schema import FEATURE_NAMES
 
 _DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
@@ -21,6 +22,29 @@ PROFILE_FIELDS = ['age', 'gender', 'passenger', 'car_type', 'load_kg', 'car_age'
 
 def load_routes(path) -> list:
     return pq.read_table(path).to_pylist()
+
+
+def balanced_profiles(n, seed=0) -> list:
+    """규칙 모드(comfort/sports/eco)가 고르게 섞인 프로필 풀.
+
+    기본 인구분포에선 sports(35세 미만·남·단독)가 ~5%뿐 → 그대로 학습하면
+    소수 클래스(speed 축)를 못 배워 sports 프로필 정확도가 랜덤 이하로 붕괴.
+    거절 샘플링으로 세 모드를 균등하게 채워 학습신호 균형을 맞춘다.
+    (⚠️ R6: sports=젊은 남성은 집단 사전확률일 뿐 — 균형은 학습용, 실사용은 오버라이드 전제)
+    """
+    rng = random.Random(seed)
+    target = max(1, n // 3)
+    buckets = {'comfort': [], 'sports': [], 'eco': []}
+    tries = 0
+    while min(len(v) for v in buckets.values()) < target and tries < n * 500:
+        tries += 1
+        p = sample_profile(rng)
+        mode = rule_weights.profile_to_mode(p)
+        if mode in buckets and len(buckets[mode]) < target:
+            buckets[mode].append(p)
+    pool = buckets['comfort'] + buckets['sports'] + buckets['eco']
+    rng.shuffle(pool)
+    return pool
 
 
 def _by_band(routes) -> dict:
@@ -83,7 +107,7 @@ def build_pairwise_dataset(routes_path, out_path, n_pairs=2000, profiles_per_pai
     """routes.parquet → pairwise 학습셋(parquet). 한 행: 프로필 + A/B 특성 + y=P(A선호)."""
     routes = load_routes(routes_path)
     pairs = make_route_pairs(routes, n_pairs, seed=seed)
-    pool = sample_profiles(profile_pool, seed=seed + 1)
+    pool = balanced_profiles(profile_pool, seed=seed + 1)   # 모드 균형(소수 sports 보강)
     rng = random.Random(seed + 2)
 
     rows = []
