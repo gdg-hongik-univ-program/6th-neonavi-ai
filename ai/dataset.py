@@ -11,6 +11,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from . import labeling
+from .features import vectorize
 from .profiles import sample_profiles
 from .schema import FEATURE_NAMES
 
@@ -29,8 +30,26 @@ def _by_band(routes) -> dict:
     return bands
 
 
-def make_route_pairs(routes, n_pairs, seed=0) -> list:
-    """band별로 서로 다른 O-D 경로쌍을 골고루 n_pairs 개(합) 샘플."""
+def _is_tradeoff(a, b, eps=1e-3) -> bool:
+    """A/B가 성향 축에서 트레이드오프(비지배)인지.
+
+    한 경로가 모든 축에서 우세하면(지배) 선호가 프로필과 무관 → User Tower 붕괴 유발.
+    각자 최소 한 축씩 이겨야(축 만족도 차의 부호가 섞여야) 프로필-의존 쌍.
+    라벨러(pairwise_label)와 동일한 normalize+project 로 판정해 정합 유지.
+    """
+    fa = {k: a[k] for k in FEATURE_NAMES}
+    fb = {k: b[k] for k in FEATURE_NAMES}
+    axes_a, axes_b = (vectorize.project_to_axes(n)
+                      for n in vectorize.normalize([fa, fb]))
+    diffs = [axes_a[ax] - axes_b[ax] for ax in axes_a]
+    return max(diffs) > eps and min(diffs) < -eps
+
+
+def make_route_pairs(routes, n_pairs, seed=0, tradeoff_only=True) -> list:
+    """band별로 서로 다른 O-D 경로쌍을 골고루 n_pairs 개(합) 샘플.
+
+    tradeoff_only=True 면 비지배(트레이드오프) 쌍만 채택 → 프로필-의존 학습 신호 보장.
+    """
     rng = random.Random(seed)
     bands = {b: rs for b, rs in _by_band(routes).items() if len(rs) >= 2}
     if not bands:
@@ -39,12 +58,15 @@ def make_route_pairs(routes, n_pairs, seed=0) -> list:
     pairs = []
     for rs in bands.values():
         got, tries = 0, 0
-        while got < per and tries < per * 50:
+        while got < per and tries < per * 200:
             tries += 1
             a, b = rng.sample(rs, 2)
-            if a.get('od_id') != b.get('od_id'):
-                pairs.append((a, b))
-                got += 1
+            if a.get('od_id') == b.get('od_id'):
+                continue
+            if tradeoff_only and not _is_tradeoff(a, b):
+                continue
+            pairs.append((a, b))
+            got += 1
     return pairs
 
 
