@@ -41,13 +41,39 @@ def profile_to_mode(profile) -> str:
     return 'eco'
 
 
-def profile_to_weights(profile) -> dict:
-    """프로필 → PREFERENCE_AXES 가중치 dict (합=1).
+# 연속 조정 상수 (초기값·튜닝 대상). 설계: docs/성향가중치_설계.md
+COMPACT_FUEL = 0.15     # 경차·소형 선택 = 경제성 지향
+CARAGE_FUEL = 0.02      # 오래된 차 유지 = 비용 민감 (×연식, 0~0.2)
+COMMUTER_FUEL = 0.05    # 단독+가벼운 짐 = 통근형(연비 누적)
+SUV_COMFORT = 0.10      # 큰 차 선택 = 공간·편안 우선(연비 반대신호)
+COMMUTER_LOAD_KG = 20   # '가벼운 짐' 기준
 
-    기본 구현: 모드 판정 → MODE_PRESETS 반환.
-    (추후 AHP/퍼지로 연속 가중치로 확장 가능)
+
+def profile_to_weights(profile) -> dict:
+    """프로필 → PREFERENCE_AXES 연속 가중치 dict (합=1).
+
+    이산 모드 백본(MODE_PRESETS) + 선택 기반 근거의 연속 조정 → 재정규화.
+    조정은 강약(연속 강도)만 더하며 argmax 모드를 뒤집지 않는다. 설계: docs/성향가중치_설계.md.
+    ⚠️ 나이·성별이 아닌 차종·연식(본인 선택) 위주 — R6 편향 완화.
     """
     mode = profile_to_mode(profile)
-    weights = dict(MODE_PRESETS[mode])
-    # 축 순서/누락 방어
-    return {axis: float(weights.get(axis, 0.0)) for axis in PREFERENCE_AXES}
+    w = {axis: float(MODE_PRESETS[mode].get(axis, 0.0)) for axis in PREFERENCE_AXES}
+
+    car_type = _get(profile, 'car_type', 'sedan')
+    car_age = float(_get(profile, 'car_age', 0) or 0)
+    passenger = _get(profile, 'passenger', 'alone')
+    load_kg = float(_get(profile, 'load_kg', 0) or 0)
+
+    # ── 연속 조정: 연비(fuel) 적극 근거 + suv 반대신호 ──
+    if car_type == 'compact':
+        w['fuel'] += COMPACT_FUEL
+    w['fuel'] += CARAGE_FUEL * min(car_age, 10.0)
+    if passenger == 'alone' and load_kg < COMMUTER_LOAD_KG:
+        w['fuel'] += COMMUTER_FUEL
+    if car_type == 'suv':
+        w['comfort'] += SUV_COMFORT
+
+    # 클립(≥0) 후 합=1 재정규화
+    w = {a: max(0.0, v) for a, v in w.items()}
+    total = sum(w.values()) or 1.0
+    return {a: w[a] / total for a in PREFERENCE_AXES}

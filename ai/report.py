@@ -31,6 +31,8 @@ PROFILES = [
     {'name': '27세 남 단독',       'age': 27, 'gender': 'M', 'passenger': 'alone',      'car_type': 'compact', 'load_kg': 0,  'car_age': 2},
     {'name': '40세 여 단독',       'age': 40, 'gender': 'F', 'passenger': 'alone',      'car_type': 'sedan',   'load_kg': 0,  'car_age': 4},
     {'name': '33세 여 친구동승',   'age': 33, 'gender': 'F', 'passenger': 'friend',     'car_type': 'suv',     'load_kg': 10, 'car_age': 1},
+    {'name': '강eco 30 경차8년단독', 'age': 30, 'gender': 'F', 'passenger': 'alone',    'car_type': 'compact', 'load_kg': 5,  'car_age': 8},
+    {'name': '약eco 45 세단친구새차', 'age': 45, 'gender': 'F', 'passenger': 'friend',   'car_type': 'sedan',   'load_kg': 10, 'car_age': 1},
 ]
 
 
