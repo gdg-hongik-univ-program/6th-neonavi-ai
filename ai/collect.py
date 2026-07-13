@@ -7,11 +7,13 @@
 얇은 슬라이스로 검증 후 스케일업. slope용 DEM(Open Topo Data)은 1req/sec 제한 → throttle.
 출력은 ai/data/ (gitignore).
 """
-import json
 import math
 import os
 import random
 import time
+
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 from .adapters import kakao
 from .features import vectorize
@@ -64,23 +66,31 @@ def _row(od_id, band, cr) -> dict:
     }
 
 
+def _write_parquet(rows, path) -> None:
+    if not rows:
+        return
+    cols = {k: [r.get(k) for r in rows] for k in rows[0].keys()}
+    pq.write_table(pa.table(cols), path)
+
+
 def collect(od_pairs, out_path, throttle=1.0, verbose=True) -> list:
-    """O-D 목록 → 각 경로의 특성행 리스트, JSONL 저장."""
+    """O-D 목록 → 각 경로의 특성행 리스트, parquet 저장.
+
+    O-D 하나 끝날 때마다 중간 저장 → 오래 걸리는 수집이 끊겨도 데이터 보존.
+    """
+    os.makedirs(_DATA_DIR, exist_ok=True)
     rows = []
     for i, (o, d, band) in enumerate(od_pairs):
         pool = kakao.fetch_pool(o, d, mode='collect')
         for cr in pool:
             rows.append(_row(f'od{i:04d}', band, cr))
             time.sleep(throttle)  # DEM(Open Topo Data) rate limit 완화
+        _write_parquet(rows, out_path)  # 체크포인트
         if verbose:
-            print(f'  [{i + 1}/{len(od_pairs)}] band {band}: 경로 {len(pool)}개 (누적 {len(rows)}행)')
+            print(f'  [{i + 1}/{len(od_pairs)}] band {band}: 경로 {len(pool)}개 (누적 {len(rows)}행)', flush=True)
 
-    os.makedirs(_DATA_DIR, exist_ok=True)
-    with open(out_path, 'w', encoding='utf-8') as fh:
-        for r in rows:
-            fh.write(json.dumps(r, ensure_ascii=False) + '\n')
     if verbose:
-        print(f'저장: {out_path} ({len(rows)}행)')
+        print(f'저장: {out_path} ({len(rows)}행)', flush=True)
     return rows
 
 
@@ -90,5 +100,5 @@ if __name__ == '__main__':
     print(f'O-D {len(ods)}개 생성:')
     for o, d, band in ods:
         print(f'  {band}: {o[0]:.3f},{o[1]:.3f} → {d[0]:.3f},{d[1]:.3f}')
-    out = os.path.join(_DATA_DIR, 'routes_thin.jsonl')
+    out = os.path.join(_DATA_DIR, 'routes_thin.parquet')
     collect(ods, out)

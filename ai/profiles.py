@@ -6,8 +6,6 @@ schema.UserProfile 과 동일한 필드의 dict 를 반환한다.
 """
 import random
 
-from .recommender import weights
-
 GENDERS = ['M', 'F']
 PASSENGERS = ['alone', 'family', 'vulnerable', 'friend']
 PASSENGER_W = [0.45, 0.25, 0.10, 0.20]
