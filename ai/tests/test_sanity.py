@@ -1,25 +1,45 @@
 """방안 B 조기 sanity 유닛테스트 (Phase 2, R9).
 
-설문 전에 '명백한 케이스'로 GIGO를 조기 검출한다. 규칙/특성이 상식과 맞는지 확인.
-아직 recommend 미구현이라 skip; 구현되면 xfail/skip 해제.
+설문 전에 '명백한 케이스'로 GIGO를 조기 검출한다. 규칙/특성/투영이 상식과 맞는지 확인.
 """
-import pytest
-
 from ai.recommender import baseline_b
 
+# 급커브(굽이 많음) 경로 — 빠르지만 불편
+CURVY = {'id': 'curvy',
+         'coords': [(127.0, 37.0), (127.005, 37.004), (127.004, 37.0),
+                    (127.009, 37.005), (127.008, 37.0)],
+         'distance_km': 10.0, 'duration_min': 12.0, 'toll': 0.0}
+# 완만한 직선 경로 — 조금 느리지만 편안
+SMOOTH = {'id': 'smooth',
+          'coords': [(127.0, 37.0), (127.01, 37.0), (127.02, 37.0), (127.03, 37.0)],
+          'distance_km': 10.5, 'duration_min': 15.0, 'toll': 0.0}
 
-@pytest.mark.skip(reason="baseline_b.recommend 구현 후 활성화")
+
+def _top(profile, routes):
+    return baseline_b.recommend(profile, routes)[0].route_id
+
+
 def test_vulnerable_passenger_avoids_curvy_route():
-    """노약자 동반 프로필은 급커브·급경사 경로를 상위로 추천하지 않아야 한다."""
+    """노약자 동반(comfort 성향)은 급커브 경로를 1순위로 추천하지 않아야 한다."""
     profile = {'age': 65, 'gender': 'F', 'passenger': 'vulnerable',
                'car_type': 'sedan', 'load_kg': 0, 'car_age': 3}
-    # TODO: 곡률 높은 경로 vs 낮은 경로 후보 구성 → 낮은 쪽이 top-1 인지 검증
-    result = baseline_b.recommend(profile, [])
-    assert result  # placeholder
+    assert _top(profile, [CURVY, SMOOTH]) == 'smooth'
 
 
-@pytest.mark.skip(reason="baseline_b.recommend 구현 후 활성화")
-def test_eco_profile_prefers_low_fuel():
-    """연비 중시 성향은 유류비 낮은 경로를 선호해야 한다."""
-    # TODO
-    pass
+def test_sports_profile_prefers_faster_route():
+    """스포츠 성향(젊은 남성 단독)은 더 빠른 경로를 1순위로 선호해야 한다."""
+    profile = {'age': 28, 'gender': 'M', 'passenger': 'alone', 'car_type': 'sedan'}
+    assert _top(profile, [CURVY, SMOOTH]) == 'curvy'
+
+
+def test_eco_profile_prefers_shorter_distance():
+    """연비 성향은 거리(=연료 프록시)가 짧은 경로를 선호해야 한다."""
+    short = {**SMOOTH, 'id': 'short', 'distance_km': 8.0}
+    long_ = {**SMOOTH, 'id': 'long', 'distance_km': 16.0}
+    profile = {'age': 30, 'gender': 'F', 'passenger': 'alone', 'car_type': 'compact'}
+    assert _top(profile, [long_, short]) == 'short'
+
+
+def test_empty_candidates_returns_empty():
+    assert baseline_b.recommend({'age': 40, 'gender': 'M', 'passenger': 'alone',
+                                 'car_type': 'sedan'}, []) == []

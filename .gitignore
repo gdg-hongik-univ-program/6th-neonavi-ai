@@ -29,6 +29,17 @@ dist-ssr/
 *.parquet
 *.geojson
 
+# ---- DEM / 지리 래스터 & 다운로드 (대용량) ----
+*.tif
+*.tiff
+*.img
+*.hgt
+*.asc
+*.vrt
+*.zip
+*.npy
+*.npz
+
 # ---- 환경변수 / 시크릿 ----
 .env
 .env.*

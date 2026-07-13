@@ -11,14 +11,23 @@ from dataclasses import dataclass, field
 PREFERENCE_AXES = ('speed', 'comfort', 'fuel', 'safety')
 
 # ── 경로 특성 벡터 f 의 필드 (features/vectorize.py 가 이 순서로 생성) ──
+# Phase 0 계약(2026-07-13 확정, docs/Phase0_계약.md). [방향] = 값이 낮을수록 좋음(↓) 여부.
+# road_type 만 예외(고속도로일수록 값↑) → 규칙 투영에선 중립, 학습 Route Tower 가 주로 활용.
 FEATURE_NAMES = (
-    'distance_km',   # 총 거리
-    'duration_min',  # 예상 소요시간
-    'curvature',     # 곡률(굽이) 지표
-    'slope',         # 경사 지표
-    'fuel_cost',     # 예상 유류비
-    'toll',          # 통행료
-    'signal_count',  # 신호등 수
+    # ── 카카오 응답에서 즉시 (무료·신뢰 높음) ──
+    'distance_km',   # 총 거리 km — summary.distance/1000        [↓]
+    'duration_min',  # 예상 소요시간 min — summary.duration/60    [↓]
+    'toll',          # 통행료 원 — summary.fare.toll             [↓]
+    'congestion',    # 정체도 — roads[].traffic_state 거리가중 평균 [↓]
+    'turn_count',    # 회전·교차로 스텝 수 — guides[] (신호 프록시) [↓]
+    # ── 좌표 기하 계산 (완료) ──
+    'curvature',     # 곡률(굽이) — Menger, curvature.py         [↓]
+    # ── 외부 데이터/추정 (핵심 차별점) ──
+    'slope',         # 경사 지표 — Open Topo Data DEM (캐싱)       [↓]
+    'fuel_cost',     # 예상 유류비 — 거리+경사+차종 추정식         [↓]
+    # ── 공공데이터 spatial join (Max, 서빙 단계·임세희 협업) ──
+    'signal_count',  # 신호등 밀도 개/km — 신호등 표준데이터        [↓]
+    'road_type',     # 고속도로 비율 0~1 — 국가표준노드링크 ROAD_RANK [↑, 비단조]
 )
 
 # ── 성향 모드 프리셋: 각 축(PREFERENCE_AXES)을 얼마나 중시하는지 (baseline_b 기본값) ──
@@ -43,13 +52,15 @@ class UserProfile:
 
 @dataclass
 class CandidateRoute:
-    """지도 API가 준 후보 경로 1개. backend가 채워서 전달."""
+    """지도 API가 준 후보 경로 1개. backend/어댑터가 채워서 전달."""
     id: str
     coords: list[tuple[float, float]]   # [(lng, lat), ...] 폴리라인
     distance_km: float
     duration_min: float
     toll: float = 0.0
-    guides: list[dict] = field(default_factory=list)  # 턴바이턴 회전 스텝 (Lv2용)
+    guides: list[dict] = field(default_factory=list)  # 턴바이턴 회전 스텝 (Lv2 + turn_count 원천)
+    roads: list[dict] = field(default_factory=list)   # [{name,distance,traffic_speed,traffic_state}] — congestion/road_type 원천
+    bound: dict = field(default_factory=dict)          # summary.bound — FE 지도 표시용
 
 
 @dataclass

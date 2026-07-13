@@ -1,0 +1,194 @@
+"""카카오 길찾기 어댑터 — O-D → 실경로 pool 수집.
+
+설계·근거: docs/경로수집_설계.md
+- 한 번 호출은 보통 1경로 → priority 다중 + 경유지 수직 교란으로 pool 확대.
+- 격자 Jaccard 로 중복(같은 길) 제거.
+- mode='collect'(전부, 학습 수집) / mode='serve'(우회 cap, top-N, 서빙).
+
+CandidateRoute 필드는 schema.py 계약을 따른다.
+"""
+from __future__ import annotations
+
+import math
+import os
+
+import requests
+
+from ..schema import CandidateRoute
+
+KAKAO_URL = "https://apis-navi.kakaomobility.com/v1/directions"
+
+
+# ── 설정/인증 ──────────────────────────────────────────────────────
+
+def _load_env() -> None:
+    """의존성 없이 repo_root/.env 에서 KAKAO_REST_API_KEY 주입."""
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    env_path = os.path.join(repo_root, ".env")
+    if not os.path.exists(env_path):
+        return
+    with open(env_path, "r", encoding="utf-8") as f:
+        for raw in f:
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+def _headers() -> dict:
+    _load_env()
+    key = os.environ.get("KAKAO_REST_API_KEY", "")
+    if not key:
+        raise RuntimeError("KAKAO_REST_API_KEY 없음 — .env 에 설정하세요.")
+    return {"Authorization": f"KakaoAK {key}"}
+
+
+# ── 좌표 유틸 ──────────────────────────────────────────────────────
+
+def _pt(p) -> tuple[float, float]:
+    """(lng, lat) 튜플/리스트 또는 'lng,lat' 문자열 → (lng, lat) float."""
+    if isinstance(p, str):
+        x, y = p.split(",")
+        return float(x), float(y)
+    return float(p[0]), float(p[1])
+
+
+def _fmt(p) -> str:
+    x, y = _pt(p)
+    return f"{x},{y}"
+
+
+# ── 호출 ───────────────────────────────────────────────────────────
+
+def _call(origin, dest, priority="RECOMMEND", waypoint=None, timeout=10) -> list[dict]:
+    """카카오 1회 호출 → result_code==0 인 raw route dict 리스트."""
+    params = {
+        "origin": _fmt(origin),
+        "destination": _fmt(dest),
+        "priority": priority,
+        "alternatives": "true",
+        "road_details": "true",
+    }
+    if waypoint is not None:
+        params["waypoints"] = _fmt(waypoint)
+    try:
+        resp = requests.get(KAKAO_URL, headers=_headers(), params=params, timeout=timeout)
+    except requests.RequestException:
+        return []
+    if resp.status_code != 200:
+        return []
+    return [r for r in resp.json().get("routes", []) if r.get("result_code") == 0]
+
+
+# ── 파싱 & 중복제거 ────────────────────────────────────────────────
+
+def _parse(route: dict, rid: str) -> CandidateRoute:
+    """raw route dict → CandidateRoute."""
+    s = route.get("summary", {})
+    coords: list[tuple[float, float]] = []
+    roads: list[dict] = []
+    guides: list[dict] = []
+    for sec in route.get("sections", []):
+        for road in sec.get("roads", []):
+            v = road.get("vertexes", [])
+            for i in range(0, len(v) - 1, 2):
+                coords.append((v[i], v[i + 1]))
+            roads.append({
+                "name": road.get("name", ""),
+                "distance": road.get("distance", 0),
+                "traffic_speed": road.get("traffic_speed"),
+                "traffic_state": road.get("traffic_state"),
+            })
+        guides.extend(sec.get("guides", []))
+    return CandidateRoute(
+        id=rid,
+        coords=coords,
+        distance_km=s.get("distance", 0) / 1000.0,
+        duration_min=s.get("duration", 0) / 60.0,
+        toll=float((s.get("fare") or {}).get("toll", 0) or 0),
+        guides=guides,
+        roads=roads,
+        bound=s.get("bound", {}) or {},
+    )
+
+
+def _cells(route: CandidateRoute, prec: int = 3) -> set:
+    """경로가 지나는 ~100m 격자 집합 (prec=3 → 소수 3자리)."""
+    return {(round(x, prec), round(y, prec)) for x, y in route.coords}
+
+
+def _jaccard(a: set, b: set) -> float:
+    return len(a & b) / len(a | b) if (a or b) else 0.0
+
+
+# ── 공개 API ───────────────────────────────────────────────────────
+
+def fetch_pool(
+    origin,
+    destination,
+    mode: str = "collect",
+    priorities=("RECOMMEND", "DISTANCE"),
+    waypoint_fracs=(1 / 3, 1 / 2, 2 / 3),
+    waypoint_mags=(0.012,),
+    dedupe_threshold: float = 0.8,
+    serve_detour: float = 1.5,
+    serve_top: int = 5,
+) -> list[CandidateRoute]:
+    """O-D → 중복 제거된 후보 경로 리스트.
+
+    mode='collect' : 우회 제한 없이 전부 (학습 수집, 다양성 최대) — 현재 기본.
+    mode='serve'   : best 시간의 serve_detour 배 이내, 시간 오름차순 top serve_top (서빙).
+
+    호출 수 = len(priorities) + len(fracs)*len(mags)*2 (경유지 ±).
+    기본값 = 2 + 3*1*2 = 8회/O-D.
+    """
+    ox, oy = _pt(origin)
+    dx, dy = _pt(destination)
+
+    raw: list[dict] = []
+    for p in priorities:
+        raw += _call((ox, oy), (dx, dy), priority=p)
+
+    # O-D 직선의 수직 단위벡터로 경유지 교란
+    vx, vy = dx - ox, dy - oy
+    length = math.hypot(vx, vy) or 1.0
+    px, py = -vy / length, vx / length
+    for frac in waypoint_fracs:
+        bx, by = ox + vx * frac, oy + vy * frac
+        for mag in waypoint_mags:
+            for sgn in (1, -1):
+                wp = (bx + px * mag * sgn, by + py * mag * sgn)
+                raw += _call((ox, oy), (dx, dy), priority="RECOMMEND", waypoint=wp)
+
+    # 파싱 + 격자 Jaccard 중복 제거
+    distinct: list[CandidateRoute] = []
+    distinct_cells: list[set] = []
+    for i, route in enumerate(raw):
+        cr = _parse(route, f"tmp{i}")
+        c = _cells(cr)
+        if all(_jaccard(c, dc) < dedupe_threshold for dc in distinct_cells):
+            distinct.append(cr)
+            distinct_cells.append(c)
+
+    for i, cr in enumerate(distinct):
+        cr.id = f"route_{i}"
+
+    if mode == "serve" and distinct:
+        best = min(cr.duration_min for cr in distinct)
+        distinct = [cr for cr in distinct if cr.duration_min <= best * serve_detour]
+        distinct.sort(key=lambda cr: cr.duration_min)
+        distinct = distinct[:serve_top]
+
+    return distinct
+
+
+if __name__ == "__main__":
+    # 간이 live 테스트: 강남역 → 판교역
+    pool = fetch_pool((127.027619, 37.497942), (127.111202, 37.394912), mode="collect")
+    print(f"[kakao] collect pool: {len(pool)}개 경로\n")
+    for cr in pool:
+        ts = [r["traffic_state"] for r in cr.roads if r["traffic_state"] is not None]
+        print(f"  {cr.id}: {cr.distance_km:5.1f}km {cr.duration_min:5.1f}분 "
+              f"통행료{cr.toll:6.0f} | 좌표{len(cr.coords):4d}점 guides{len(cr.guides):3d} "
+              f"roads{len(cr.roads):3d}")
