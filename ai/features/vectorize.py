@@ -9,16 +9,19 @@
 방안 A는 이 투영을 Two-Tower RouteTower 로 '학습'해 대체한다(R1 프레이밍).
 """
 from ..schema import FEATURE_NAMES, PREFERENCE_AXES
-from . import curvature
+from . import curvature, elevation, fuel as fuel_mod
 
-# 원시 특성은 모두 '낮을수록 좋음' → 만족도 = 1 - 정규값.
-# 각 성향 축이 어떤 특성으로 구성되는지 (관련 특성들의 만족도 평균).
+# 원시 특성은 모두 '낮을수록 좋음' → 만족도 = 1 - 정규값. (road_type만 비단조라 규칙 투영 제외)
+# 각 성향 축이 어떤 특성으로 구성되는지 (관련 특성들의 만족도 평균). Phase0_계약.md 참조.
 AXIS_FEATURES = {
-    'speed':   ('duration_min',),
-    'comfort': ('curvature', 'slope'),
-    'fuel':    ('fuel_cost', 'distance_km'),
-    'safety':  ('curvature', 'slope', 'signal_count'),
+    'speed':   ('duration_min', 'congestion', 'signal_count'),
+    'comfort': ('curvature', 'slope', 'turn_count', 'congestion'),
+    'fuel':    ('fuel_cost', 'distance_km', 'toll'),
+    'safety':  ('curvature', 'slope', 'turn_count', 'signal_count'),
 }
+
+# 카카오 traffic_state → 정체 심각도(높을수록 막힘). 0/None=정보없음 → 평균에서 제외.
+CONGESTION_LEVEL = {1: 1.0, 2: 0.75, 3: 0.5, 4: 0.0}
 
 
 def _get(obj, key, default=0.0):
@@ -27,22 +30,59 @@ def _get(obj, key, default=0.0):
     return getattr(obj, key, default)
 
 
-def build_feature_vector(route) -> dict:
+def _congestion(route) -> float:
+    """roads[].traffic_state 거리가중 평균 정체도 (0=원활 ~ 1=정체). 정보없음 구간 제외."""
+    num = den = 0.0
+    for r in _get(route, 'roads', []) or []:
+        st = r.get('traffic_state') if isinstance(r, dict) else None
+        d = float(r.get('distance', 0) or 0) if isinstance(r, dict) else 0.0
+        lvl = CONGESTION_LEVEL.get(st)
+        if lvl is None or d <= 0:
+            continue
+        num += lvl * d
+        den += d
+    return num / den if den else 0.0
+
+
+def _turn_density(route, dist_km: float) -> float:
+    """회전·교차로 스텝 밀도(개/km). 출발(type 100)·목적(101)은 제외.
+
+    (guide type 코드 의미표 확정 전 프록시: 끝점 제외 스텝 수. 신호등 대체 신호이기도 함)
+    """
+    guides = _get(route, 'guides', []) or []
+    turns = sum(1 for g in guides
+                if isinstance(g, dict) and g.get('type') not in (100, 101))
+    return turns / dist_km if dist_km > 0 else 0.0
+
+
+def build_feature_vector(route, enrich: bool = False) -> dict:
     """CandidateRoute → {FEATURE_NAMES: 원시값}.
 
-    외부 데이터가 필요한 slope/fuel_cost/signal_count 는 아직 0.0 placeholder.
-    (elevation/fuel/road 모듈 구현되면 여기서 호출해 채운다)
+    카카오/기하로 즉시 채우는 것: distance·duration·toll·congestion·turn_count·curvature.
+    enrich=True 면 외부 데이터 특성도 채운다(네트워크/DEM 호출):
+      - slope: elevation.route_slope (Open Topo Data/로컬 DEM)
+    enrich=False(기본)면 외부 특성은 0.0 placeholder — 테스트·합성 데이터에서 네트워크 회피.
+    fuel_cost/signal_count/road_type 은 추출기 구현(A4·A5) 후 여기서 채운다.
     """
     coords = _get(route, 'coords', []) or []
+    dist = float(_get(route, 'distance_km', 0.0))
+    cong = _congestion(route)
     curv = curvature.route_curvature(coords)['mean'] if len(coords) >= 3 else 0.0
+    slope_info = (elevation.route_slope(coords) if (enrich and len(coords) >= 2)
+                  else {'mean': 0.0, 'climb_m': 0.0})
+    # fuel: 거리·정체는 항상, 상승고도(climb)는 enrich 시에만 반영 (표준차 기준)
+    fuel_cost = fuel_mod.route_fuel_cost(route, cong, slope_info['climb_m'])
     return {
-        'distance_km':  float(_get(route, 'distance_km', 0.0)),
+        'distance_km':  dist,
         'duration_min': float(_get(route, 'duration_min', 0.0)),
-        'curvature':    float(curv),
-        'slope':        0.0,   # TODO: elevation.route_slope(coords)
-        'fuel_cost':    0.0,   # TODO: fuel.route_fuel_cost(route)
         'toll':         float(_get(route, 'toll', 0.0)),
-        'signal_count': 0.0,   # TODO: road.route_signal_count(route)
+        'congestion':   cong,
+        'turn_count':   _turn_density(route, dist),
+        'curvature':    float(curv),
+        'slope':        float(slope_info['mean']),
+        'fuel_cost':    float(fuel_cost),
+        'signal_count': 0.0,   # TODO A5: 신호등 표준데이터 spatial join
+        'road_type':    0.0,   # TODO A5: 노드링크 ROAD_RANK (고속도로 비율)
     }
 
 
@@ -75,8 +115,8 @@ def project_to_axes(norm_vec: dict) -> dict:
     return {a: axes.get(a, 0.5) for a in PREFERENCE_AXES}
 
 
-def routes_to_axis_vectors(routes: list) -> list:
+def routes_to_axis_vectors(routes: list, enrich: bool = False) -> list:
     """편의 함수: 후보 경로 리스트 → 각 경로의 축 만족도 dict 리스트."""
-    feats = [build_feature_vector(r) for r in routes]
+    feats = [build_feature_vector(r, enrich=enrich) for r in routes]
     norms = normalize(feats)
     return [project_to_axes(n) for n in norms]
