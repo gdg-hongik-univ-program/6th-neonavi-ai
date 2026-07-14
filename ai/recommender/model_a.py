@@ -19,7 +19,7 @@ from ..models.two_tower import TwoTower
 _DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
 _DEFAULT_CKPT = os.path.join(_DATA_DIR, 'model_a.pt')
 
-AXIS_KOR = {'speed': '빠른 길', 'comfort': '편안함', 'fuel': '경제성', 'safety': '안전'}
+AXIS_KOR = {'sports': '스포티한 주행', 'comfort': '편안함', 'fuel': '경제성', 'safety': '안전'}
 
 
 class LoadedModel:

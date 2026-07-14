@@ -8,7 +8,7 @@ from ..schema import Recommendation
 from ..features import vectorize
 from . import weights
 
-AXIS_KOR = {'speed': '빠른 길', 'comfort': '편안함', 'fuel': '경제성', 'safety': '안전'}
+AXIS_KOR = {'sports': '스포티한 주행', 'comfort': '편안함', 'fuel': '경제성', 'safety': '안전'}
 
 
 def _route_id(route, idx):

@@ -11,10 +11,14 @@
 from ..schema import FEATURE_NAMES, PREFERENCE_AXES
 from . import curvature, elevation, fuel as fuel_mod
 
-# 원시 특성은 모두 '낮을수록 좋음' → 만족도 = 1 - 정규값. (road_type만 비단조라 규칙 투영 제외)
+# 만족도 = 1 - 정규값 (낮을수록 좋음). 단 HIGHER_BETTER 특성은 정규값 그대로(높을수록 좋음).
+# road_type(비단조)은 규칙 투영에서 제외 — 학습 Route Tower 만 활용.
+HIGHER_BETTER = {'avg_speed'}   # ↑ 특성: sports 의 주행속력
+
 # 각 성향 축이 어떤 특성으로 구성되는지 (관련 특성들의 만족도 평균). Phase0_계약.md 참조.
+# sports = 감속 회피/주행속력: avg_speed↑ + turn↓ + congestion↓ (+ signal↓·road_type↑ 는 A5 후).
 AXIS_FEATURES = {
-    'speed':   ('duration_min', 'congestion', 'signal_count'),
+    'sports':  ('avg_speed', 'turn_count', 'congestion', 'signal_count'),
     'comfort': ('curvature', 'slope', 'turn_count', 'congestion'),
     'fuel':    ('fuel_cost', 'distance_km', 'toll'),
     'safety':  ('curvature', 'slope', 'turn_count', 'signal_count'),
@@ -42,6 +46,11 @@ def _congestion(route) -> float:
         num += lvl * d
         den += d
     return num / den if den else 0.0
+
+
+def avg_speed_kmh(distance_km: float, duration_min: float) -> float:
+    """평균 주행속력 km/h = 거리 ÷ 시간. sports(주행속력↑) 특성. duration=0 방어."""
+    return distance_km / (duration_min / 60.0) if duration_min and duration_min > 0 else 0.0
 
 
 def _turn_density(route, dist_km: float) -> float:
@@ -72,9 +81,11 @@ def build_feature_vector(route, enrich: bool = False) -> dict:
                   else {'mean': 0.0, 'climb_m': 0.0})
     # fuel: 거리·정체는 항상, 상승고도(climb)는 enrich 시에만 반영 (표준차 기준)
     fuel_cost = fuel_mod.route_fuel_cost(route, cong, slope_info['climb_m'])
+    dur = float(_get(route, 'duration_min', 0.0))
     return {
         'distance_km':  dist,
-        'duration_min': float(_get(route, 'duration_min', 0.0)),
+        'duration_min': dur,
+        'avg_speed':    avg_speed_kmh(dist, dur),
         'toll':         float(_get(route, 'toll', 0.0)),
         'congestion':   cong,
         'turn_count':   _turn_density(route, dist),
@@ -104,13 +115,16 @@ def normalize(vectors: list) -> list:
 
 
 def project_to_axes(norm_vec: dict) -> dict:
-    """정규 특성(낮을수록 좋음) → 성향 축 만족도(높을수록 좋음).
+    """정규 특성 → 성향 축 만족도(높을수록 좋음).
 
-    축 만족도 = 관련 특성들의 (1 - 정규값) 평균. 관련 특성 없으면 0.5(중립).
+    축 만족도 = 관련 특성들의 만족도 평균. 낮을수록 좋은 특성은 (1-정규값),
+    HIGHER_BETTER(avg_speed 등)는 정규값 그대로. 관련 특성 없으면 0.5(중립).
     """
     axes = {}
     for axis, feats in AXIS_FEATURES.items():
-        sats = [1.0 - norm_vec.get(f, 0.5) for f in feats]
+        # HIGHER_BETTER 특성은 정규값 그대로, 그 외는 반전(1-정규값)
+        sats = [norm_vec.get(f, 0.5) if f in HIGHER_BETTER else 1.0 - norm_vec.get(f, 0.5)
+                for f in feats]
         axes[axis] = sum(sats) / len(sats) if sats else 0.5
     return {a: axes.get(a, 0.5) for a in PREFERENCE_AXES}
 

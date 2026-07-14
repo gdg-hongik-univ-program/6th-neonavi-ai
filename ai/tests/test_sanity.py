@@ -26,10 +26,18 @@ def test_vulnerable_passenger_avoids_curvy_route():
     assert _top(profile, [CURVY, SMOOTH]) == 'smooth'
 
 
-def test_sports_profile_prefers_faster_route():
-    """스포츠 성향(젊은 남성 단독)은 더 빠른 경로를 1순위로 선호해야 한다."""
+def test_sports_profile_prefers_high_speed_route():
+    """스포츠 성향(젊은 남성 단독)은 주행속력(avg_speed)이 높은 경로를 선호해야 한다.
+
+    sports = '빠른 길(최단시간)'이 아니라 '감속 회피/고속 주행'(2026-07-14 정정).
+    HWY: 거리 길지만 속력 높음(고속도로형) / LOCAL: 거리 짧지만 속력 낮음(시내).
+    """
+    hwy = {'id': 'hwy', 'coords': [(127.0, 37.0), (127.1, 37.0), (127.2, 37.0)],
+           'distance_km': 24.0, 'duration_min': 18.0, 'toll': 0.0}     # 80 km/h
+    local = {'id': 'local', 'coords': [(127.0, 37.0), (127.03, 37.0), (127.06, 37.0)],
+             'distance_km': 12.0, 'duration_min': 18.0, 'toll': 0.0}   # 40 km/h
     profile = {'age': 28, 'gender': 'M', 'passenger': 'alone', 'car_type': 'sedan'}
-    assert _top(profile, [CURVY, SMOOTH]) == 'curvy'
+    assert _top(profile, [hwy, local]) == 'hwy'
 
 
 def test_eco_profile_prefers_shorter_distance():

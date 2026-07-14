@@ -7,35 +7,37 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# ── 성향 축 (Two-Tower latent 과 정렬: two_tower.py 주석의 [속도, 편안함, 연비, 안전]) ──
-PREFERENCE_AXES = ('speed', 'comfort', 'fuel', 'safety')
+# ── 성향 축 (Two-Tower latent 과 정렬: sports·comfort·eco(=fuel)·safety) ──
+# sports = '빠른 길'이 아니라 '감속 회피/주행속력'(2026-07-14 정정). 빠른 도착은 API가 이미 보장.
+PREFERENCE_AXES = ('sports', 'comfort', 'fuel', 'safety')
 
 # ── 경로 특성 벡터 f 의 필드 (features/vectorize.py 가 이 순서로 생성) ──
-# Phase 0 계약(2026-07-13 확정, docs/Phase0_계약.md). [방향] = 값이 낮을수록 좋음(↓) 여부.
-# road_type 만 예외(고속도로일수록 값↑) → 규칙 투영에선 중립, 학습 Route Tower 가 주로 활용.
+# Phase 0 계약. [방향] = 값이 낮을수록 좋음(↓) / 높을수록 좋음(↑).
+# avg_speed·road_type 은 ↑(높을수록 좋음) → vectorize.HIGHER_BETTER 로 부호 반전 처리.
 FEATURE_NAMES = (
     # ── 카카오 응답에서 즉시 (무료·신뢰 높음) ──
     'distance_km',   # 총 거리 km — summary.distance/1000        [↓]
-    'duration_min',  # 예상 소요시간 min — summary.duration/60    [↓]
+    'duration_min',  # 예상 소요시간 min — summary.duration/60    [↓, 성향 축엔 미사용: 빠른도착=API보장]
+    'avg_speed',     # 평균 주행속력 km/h — distance/duration(파생) [↑, sports 핵심]
     'toll',          # 통행료 원 — summary.fare.toll             [↓]
     'congestion',    # 정체도 — roads[].traffic_state 거리가중 평균 [↓]
-    'turn_count',    # 회전·교차로 스텝 수 — guides[] (신호 프록시) [↓]
+    'turn_count',    # 회전·교차로 스텝 수 — guides[] (감속 프록시) [↓]
     # ── 좌표 기하 계산 (완료) ──
     'curvature',     # 곡률(굽이) — Menger, curvature.py         [↓]
     # ── 외부 데이터/추정 (핵심 차별점) ──
     'slope',         # 경사 지표 — Open Topo Data DEM (캐싱)       [↓]
     'fuel_cost',     # 예상 유류비 — 거리+경사+차종 추정식         [↓]
-    # ── 공공데이터 spatial join (Max, 서빙 단계·임세희 협업) ──
-    'signal_count',  # 신호등 밀도 개/km — 신호등 표준데이터        [↓]
+    # ── 공공데이터 spatial join (Max, 서빙 단계·임세희 협업, 지금 0.0) ──
+    'signal_count',  # 신호등 밀도 개/km — 신호등 표준데이터        [↓, sports/comfort]
     'road_type',     # 고속도로 비율 0~1 — 국가표준노드링크 ROAD_RANK [↑, 비단조]
 )
 
 # ── 성향 모드 프리셋: 각 축(PREFERENCE_AXES)을 얼마나 중시하는지 (baseline_b 기본값) ──
-# 실제 수치는 Phase 2 에서 sanity 테스트로 보정할 것.
+# 실제 수치는 sanity 테스트로 보정할 것. sports = 주행속력↑·감속(신호/회전)↓.
 MODE_PRESETS: dict[str, dict[str, float]] = {
-    'comfort': {'speed': 0.1, 'comfort': 0.6, 'fuel': 0.1, 'safety': 0.2},
-    'sports':  {'speed': 0.6, 'comfort': 0.2, 'fuel': 0.1, 'safety': 0.1},
-    'eco':     {'speed': 0.1, 'comfort': 0.2, 'fuel': 0.6, 'safety': 0.1},
+    'comfort': {'sports': 0.1, 'comfort': 0.6, 'fuel': 0.1, 'safety': 0.2},
+    'sports':  {'sports': 0.6, 'comfort': 0.2, 'fuel': 0.1, 'safety': 0.1},
+    'eco':     {'sports': 0.1, 'comfort': 0.2, 'fuel': 0.6, 'safety': 0.1},
 }
 
 

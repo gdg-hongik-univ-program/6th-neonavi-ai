@@ -21,7 +21,13 @@ PROFILE_FIELDS = ['age', 'gender', 'passenger', 'car_type', 'load_kg', 'car_age'
 
 
 def load_routes(path) -> list:
-    return pq.read_table(path).to_pylist()
+    rows = pq.read_table(path).to_pylist()
+    # routes.parquet 에 없는 파생특성(avg_speed) 채움 — 재수집 없이 거리/시간으로 계산
+    for r in rows:
+        if 'avg_speed' not in r or r.get('avg_speed') is None:
+            r['avg_speed'] = vectorize.avg_speed_kmh(
+                float(r.get('distance_km', 0.0)), float(r.get('duration_min', 0.0)))
+    return rows
 
 
 def balanced_profiles(n, seed=0) -> list:

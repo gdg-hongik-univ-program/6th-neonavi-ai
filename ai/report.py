@@ -75,6 +75,9 @@ def build_report(routes_path=None, ckpt_path=None, out_dir=None, per_band=1):
     routes_path = routes_path or os.path.join(_DATA_DIR, 'routes.parquet')
     out_dir = out_dir or _DATA_DIR
     routes = pq.read_table(routes_path).to_pylist()
+    for r in routes:   # 파생특성 avg_speed 채움(재수집 없이)
+        r.setdefault('avg_speed', vectorize.avg_speed_kmh(
+            float(r.get('distance_km', 0.0)), float(r.get('duration_min', 0.0))))
     model = load_model(ckpt_path).model
     od_sets = _pick_od_sets(routes, per_band=per_band)
 
