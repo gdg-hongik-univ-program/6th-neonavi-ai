@@ -104,4 +104,4 @@ if __name__ == '__main__':
     ods = generate_od_pairs(per_band=per_band, seed=0)
     print(f'O-D {len(ods)}개 생성 (per_band={per_band})', flush=True)
     out = os.path.join(_DATA_DIR, 'routes.parquet')
-    collect(ods, out)
+    collect(ods, out, throttle=0.2)  # 로컬 DEM이라 DEM throttle 불필요, 카카오 예의만

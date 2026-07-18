@@ -1,15 +1,18 @@
 """경로 좌표로부터 경사(오르막) 특성을 계산한다.
 
 지도 API는 고도를 안 주므로 고도 데이터로 인접 점 고도차/거리(=grade)를 계산한다.
-- 1차: Open Topo Data(무료·무인증, srtm30m, 100좌표/요청·1000회/일). https://www.opentopodata.org/
-- 추후: 로컬 5m DEM 래스터로 스왑(쿼터 제거) — get_elevations 만 교체하면 됨.
+- 1차: **로컬 SRTMGL1 DEM**(임세희 제공 .hgt.zip, `ai/data/public/dem`) — 쿼터·throttle 없음.
+- fallback: 타일 밖 좌표만 Open Topo Data(srtm30m, 100좌표/요청·1000회/일). https://www.opentopodata.org/
 
 캐싱 필수: 좌표(반올림)별 고도를 디스크(ai/data/elevation_cache.json)에 저장해
 경로 간 공유 도로/재수집 시 재사용 → API 호출 최소화.
 """
+import array
 import json
 import math
 import os
+import sys
+import zipfile
 
 import requests
 
@@ -20,6 +23,44 @@ _PREC = 4        # 캐시 키 좌표 반올림 자리(~11m)
 _DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
 _CACHE_PATH = os.path.join(_DATA_DIR, 'elevation_cache.json')
 _cache = None
+
+# ── 로컬 DEM (SRTMGL1 .hgt.zip, 임세희 제공) — hosted API 쿼터 회피 ──
+_DEM_DIR = os.path.join(_DATA_DIR, 'public', 'dem', 'raw_dem')
+_SRTM_N = 3601          # SRTMGL1 = 1 arc-sec, 3601×3601
+_VOID = -32768
+_tiles = {}             # (tlat, tlng) -> array('h') | None(타일 없음)
+
+
+def _load_tile(tlat: int, tlng: int):
+    """1°×1° SRTMGL1 타일 → int16 배열(캐시). 없으면 None."""
+    key = (tlat, tlng)
+    if key in _tiles:
+        return _tiles[key]
+    path = os.path.join(_DEM_DIR, f'N{tlat:02d}E{tlng:03d}.SRTMGL1.hgt.zip')
+    if not os.path.exists(path):
+        _tiles[key] = None
+        return None
+    with zipfile.ZipFile(path) as z:
+        member = next(n for n in z.namelist() if n.lower().endswith('.hgt'))
+        data = z.read(member)
+    a = array.array('h')
+    a.frombytes(data)
+    if sys.byteorder == 'little':   # .hgt 는 big-endian
+        a.byteswap()
+    _tiles[key] = a
+    return a
+
+
+def _local_elevation(lng: float, lat: float):
+    """로컬 DEM 타일에서 고도(m). 타일 없거나 void면 None. (nearest sample)"""
+    tlat, tlng = math.floor(lat), math.floor(lng)
+    a = _load_tile(tlat, tlng)
+    if a is None:
+        return None
+    row = min(max(round((tlat + 1 - lat) * 3600), 0), _SRTM_N - 1)  # 0행=북단
+    col = min(max(round((lng - tlng) * 3600), 0), _SRTM_N - 1)
+    v = a[row * _SRTM_N + col]
+    return None if v == _VOID else float(v)
 
 
 # ── 고도 캐시 ──────────────────────────────────────────────────────
@@ -69,18 +110,24 @@ def get_elevations(points: list) -> list:
     cache = _load_cache()
     keys = [_key(lng, lat) for lng, lat in points]
 
-    missing = {}
-    for k, pt in zip(keys, points):
-        if k not in cache:
-            missing[k] = pt
+    missing = [(k, pt) for k, pt in zip(keys, points) if k not in cache]
 
-    miss = list(missing.items())
-    for i in range(0, len(miss), _MAX_LOCS):
-        chunk = miss[i:i + _MAX_LOCS]
+    # 1) 로컬 DEM 우선 (쿼터·throttle 없음)
+    remote = []
+    for k, pt in missing:
+        e = _local_elevation(*pt)
+        if e is not None:
+            cache[k] = e
+        else:
+            remote.append((k, pt))
+
+    # 2) 타일 밖 좌표만 hosted API fallback (배치)
+    for i in range(0, len(remote), _MAX_LOCS):
+        chunk = remote[i:i + _MAX_LOCS]
         elevs = _query_api([pt for _, pt in chunk])
         for (k, _), e in zip(chunk, elevs):
             cache[k] = e
-    if miss:
+    if missing:
         _save_cache()
 
     return [cache.get(k) for k in keys]
