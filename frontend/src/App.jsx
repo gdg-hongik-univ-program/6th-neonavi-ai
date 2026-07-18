@@ -1,4 +1,8 @@
+import React from 'react';
+import './App.css';
+import './page.css';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
 import Onboarding0 from './pages/Onboarding0';
 import ProfileSetup1 from './pages/ProfileSetup1';
 import Preference from './pages/Preference';
@@ -8,7 +12,6 @@ import Suggest4 from './pages/Suggest4';
 import Navi5 from './pages/Navi5';
 import Feedback6 from './pages/Feedback6';
 import MyPage7 from './pages/MyPage7';
-import React from 'react';
 
 export default function App() {
   return (
@@ -30,7 +33,6 @@ export default function App() {
           </Routes>
         </BrowserRouter>
       </div>
-
     </div>
   );
 }
