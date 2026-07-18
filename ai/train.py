@@ -105,7 +105,7 @@ def train(pairs_path=None, ckpt_path=None, epochs=60, lr=1e-3,
     ute, ate, bte, yte, _ = build_tensors(test_r)
 
     torch.manual_seed(seed)
-    model = TwoTower(USER_DIM, ROUTE_DIM)
+    model = TwoTower(USER_DIM, ROUTE_DIM, latent=len(PREFERENCE_AXES))
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     rank_loss = nn.BCEWithLogitsLoss()   # RankNet: 로짓=score차, 타깃=소프트 y
     w_loss = nn.MSELoss()                # 증류: User Tower 출력 → 규칙 가중치
@@ -143,6 +143,7 @@ def train(pairs_path=None, ckpt_path=None, epochs=60, lr=1e-3,
         'state_dict': model.state_dict(),
         'user_dim': USER_DIM,
         'route_dim': ROUTE_DIM,
+        'latent': len(PREFERENCE_AXES),
         'normalization': 'per_set_minmax',   # 후보집합 내 상대 정규화(vectorize.normalize)
         'feature_names': list(FEATURE_NAMES),
         'axes': list(PREFERENCE_AXES),

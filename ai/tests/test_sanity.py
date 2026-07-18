@@ -4,15 +4,14 @@
 """
 from ai.recommender import baseline_b
 
-# 급커브(굽이 많음) 경로 — 빠르지만 불편
+# 급커브(굽이 많음) vs 완만 — 거리·시간 동일, 곡률만 차이(comfort 축 격리)
 CURVY = {'id': 'curvy',
          'coords': [(127.0, 37.0), (127.005, 37.004), (127.004, 37.0),
                     (127.009, 37.005), (127.008, 37.0)],
-         'distance_km': 10.0, 'duration_min': 12.0, 'toll': 0.0}
-# 완만한 직선 경로 — 조금 느리지만 편안
+         'distance_km': 10.0, 'duration_min': 13.0, 'toll': 0.0}
 SMOOTH = {'id': 'smooth',
           'coords': [(127.0, 37.0), (127.01, 37.0), (127.02, 37.0), (127.03, 37.0)],
-          'distance_km': 10.5, 'duration_min': 15.0, 'toll': 0.0}
+          'distance_km': 10.0, 'duration_min': 13.0, 'toll': 0.0}
 
 
 def _top(profile, routes):

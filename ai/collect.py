@@ -7,6 +7,7 @@
 얇은 슬라이스로 검증 후 스케일업. slope용 DEM(Open Topo Data)은 1req/sec 제한 → throttle.
 출력은 ai/data/ (gitignore).
 """
+import json
 import math
 import os
 import random
@@ -36,7 +37,7 @@ def _haversine_km(a, b) -> float:
     return 2 * r * math.asin(min(1.0, math.sqrt(h)))
 
 
-def generate_od_pairs(per_band=2, seed=0, bbox=BBOX, bands=BANDS, max_tries=5000):
+def generate_od_pairs(per_band=2, seed=0, bbox=BBOX, bands=BANDS, max_tries=20000):
     """거리대별로 per_band 개씩 (origin, dest, band_label) 생성.
 
     bbox 안에서 두 점을 랜덤 샘플 → 직선거리가 해당 band 에 들면 채택.
@@ -63,6 +64,8 @@ def _row(od_id, band, cr) -> dict:
         'band': band,
         'route_id': cr.id,
         **{k: round(float(f[k]), 4) for k in FEATURE_NAMES},
+        # 좌표 저장(JSON) → 향후 특성 추가 시 재수집 없이 오프라인 재추출 가능
+        'coords': json.dumps([[round(x, 6), round(y, 6)] for x, y in cr.coords]),
     }
 
 
@@ -95,10 +98,10 @@ def collect(od_pairs, out_path, throttle=1.0, verbose=True) -> list:
 
 
 if __name__ == '__main__':
-    # 얇은 슬라이스: band별 2개 = 6 O-D
-    ods = generate_od_pairs(per_band=2, seed=42)
-    print(f'O-D {len(ods)}개 생성:')
-    for o, d, band in ods:
-        print(f'  {band}: {o[0]:.3f},{o[1]:.3f} → {d[0]:.3f},{d[1]:.3f}')
-    out = os.path.join(_DATA_DIR, 'routes_thin.parquet')
+    import sys
+    # 기본: band별 83개 ≈ 250 O-D (A5 재수집). 인자로 per_band 조절 가능.
+    per_band = int(sys.argv[1]) if len(sys.argv) > 1 else 83
+    ods = generate_od_pairs(per_band=per_band, seed=0)
+    print(f'O-D {len(ods)}개 생성 (per_band={per_band})', flush=True)
+    out = os.path.join(_DATA_DIR, 'routes.parquet')
     collect(ods, out)

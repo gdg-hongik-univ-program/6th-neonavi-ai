@@ -12,16 +12,14 @@ from ..schema import FEATURE_NAMES, PREFERENCE_AXES
 from . import curvature, elevation, fuel as fuel_mod
 
 # 만족도 = 1 - 정규값 (낮을수록 좋음). 단 HIGHER_BETTER 특성은 정규값 그대로(높을수록 좋음).
-# road_type(비단조)은 규칙 투영에서 제외 — 학습 Route Tower 만 활용.
-HIGHER_BETTER = {'avg_speed'}   # ↑ 특성: sports 의 주행속력
+HIGHER_BETTER = {'avg_speed', 'speed_limit', 'road_type'}   # ↑ 특성
 
-# 각 성향 축이 어떤 특성으로 구성되는지 (관련 특성들의 만족도 평균). Phase0_계약.md 참조.
-# sports = 감속 회피/주행속력: avg_speed↑ + turn↓ + congestion↓ (+ signal↓·road_type↑ 는 A5 후).
+# 각 성향 축의 구성 특성 (관련 특성 만족도 평균). 계약.md §2 참조. safety 삭제(2026-07-18).
+# sports=감속회피/주행속력, comfort=완만·대로, fuel=비용최소.
 AXIS_FEATURES = {
-    'sports':  ('avg_speed', 'turn_count', 'congestion', 'signal_count'),
-    'comfort': ('curvature', 'slope', 'turn_count', 'congestion'),
+    'sports':  ('avg_speed', 'speed_limit', 'road_type', 'turn_count', 'congestion', 'signal_count'),
+    'comfort': ('curvature', 'slope', 'turn_count', 'congestion', 'road_type'),
     'fuel':    ('fuel_cost', 'distance_km', 'toll'),
-    'safety':  ('curvature', 'slope', 'turn_count', 'signal_count'),
 }
 
 # 카카오 traffic_state → 정체 심각도(높을수록 막힘). 0/None=정보없음 → 평균에서 제외.
@@ -67,11 +65,11 @@ def _turn_density(route, dist_km: float) -> float:
 def build_feature_vector(route, enrich: bool = False) -> dict:
     """CandidateRoute → {FEATURE_NAMES: 원시값}.
 
-    카카오/기하로 즉시 채우는 것: distance·duration·toll·congestion·turn_count·curvature.
-    enrich=True 면 외부 데이터 특성도 채운다(네트워크/DEM 호출):
+    카카오/기하로 즉시 채우는 것: distance·duration·avg_speed·toll·congestion·turn_count·curvature.
+    enrich=True 면 외부 데이터 특성도 채운다(네트워크/DEM/공공데이터):
       - slope: elevation.route_slope (Open Topo Data/로컬 DEM)
-    enrich=False(기본)면 외부 특성은 0.0 placeholder — 테스트·합성 데이터에서 네트워크 회피.
-    fuel_cost/signal_count/road_type 은 추출기 구현(A4·A5) 후 여기서 채운다.
+      - signal_count·road_type·speed_limit: road.get_index().route_features (공공데이터 공간조인)
+    enrich=False(기본)면 외부 특성은 0.0 placeholder — 테스트·합성 데이터에서 무거운 의존 회피.
     """
     coords = _get(route, 'coords', []) or []
     dist = float(_get(route, 'distance_km', 0.0))
@@ -82,6 +80,13 @@ def build_feature_vector(route, enrich: bool = False) -> dict:
     # fuel: 거리·정체는 항상, 상승고도(climb)는 enrich 시에만 반영 (표준차 기준)
     fuel_cost = fuel_mod.route_fuel_cost(route, cong, slope_info['climb_m'])
     dur = float(_get(route, 'duration_min', 0.0))
+
+    # 공공데이터 특성 (enrich 시에만; road 모듈은 지연 import — 지오스택 없어도 테스트 동작)
+    pub = {'signal_count': 0.0, 'road_type': 0.0, 'speed_limit': 0.0}
+    if enrich and len(coords) >= 2:
+        from . import road
+        pub = road.get_index().route_features(coords)
+
     return {
         'distance_km':  dist,
         'duration_min': dur,
@@ -92,8 +97,9 @@ def build_feature_vector(route, enrich: bool = False) -> dict:
         'curvature':    float(curv),
         'slope':        float(slope_info['mean']),
         'fuel_cost':    float(fuel_cost),
-        'signal_count': 0.0,   # TODO A5: 신호등 표준데이터 spatial join
-        'road_type':    0.0,   # TODO A5: 노드링크 ROAD_RANK (고속도로 비율)
+        'signal_count': float(pub['signal_count']),
+        'road_type':    float(pub['road_type']),
+        'speed_limit':  float(pub['speed_limit']),
     }
 
 
