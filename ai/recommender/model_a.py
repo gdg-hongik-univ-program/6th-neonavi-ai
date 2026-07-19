@@ -33,7 +33,7 @@ def load_model(ckpt_path=None) -> LoadedModel:
     """학습된 Two-Tower 체크포인트 로드."""
     ckpt_path = ckpt_path or _DEFAULT_CKPT
     ckpt = torch.load(ckpt_path, map_location='cpu', weights_only=False)
-    model = TwoTower(ckpt['user_dim'], ckpt['route_dim'])
+    model = TwoTower(ckpt['user_dim'], ckpt['route_dim'], latent=ckpt.get('latent', 4))
     model.load_state_dict(ckpt['state_dict'])
     model.eval()
     return LoadedModel(model)

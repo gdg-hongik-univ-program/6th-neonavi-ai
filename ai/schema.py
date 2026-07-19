@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# ── 성향 축 (Two-Tower latent 과 정렬: sports·comfort·eco(=fuel)·safety) ──
-# sports = '빠른 길'이 아니라 '감속 회피/주행속력'(2026-07-14 정정). 빠른 도착은 API가 이미 보장.
-PREFERENCE_AXES = ('sports', 'comfort', 'fuel', 'safety')
+# ── 성향 축 (Two-Tower latent 과 정렬: sports·comfort·eco(=fuel)) ──
+# sports = '빠른 길'이 아니라 '감속 회피/주행속력'. safety는 2026-07-18 삭제(보조축이라 argmax 안 됨, comfort 흡수).
+PREFERENCE_AXES = ('sports', 'comfort', 'fuel')
 
 # ── 경로 특성 벡터 f 의 필드 (features/vectorize.py 가 이 순서로 생성) ──
 # Phase 0 계약. [방향] = 값이 낮을수록 좋음(↓) / 높을수록 좋음(↑).
@@ -27,17 +27,18 @@ FEATURE_NAMES = (
     # ── 외부 데이터/추정 (핵심 차별점) ──
     'slope',         # 경사 지표 — Open Topo Data DEM (캐싱)       [↓]
     'fuel_cost',     # 예상 유류비 — 거리+경사+차종 추정식         [↓]
-    # ── 공공데이터 spatial join (Max, 서빙 단계·임세희 협업, 지금 0.0) ──
-    'signal_count',  # 신호등 밀도 개/km — 신호등 표준데이터        [↓, sports/comfort]
-    'road_type',     # 고속도로 비율 0~1 — 국가표준노드링크 ROAD_RANK [↑, 비단조]
+    # ── 공공데이터 spatial join (A5, 노드링크·신호등; road.py) ──
+    'signal_count',  # 신호교차로 밀도 개/km — 신호등 표준데이터      [↓, sports/comfort]
+    'road_type',     # 고속도로 비율 0~1 — 노드링크 ROAD_RANK(101·102) [↑, sports/comfort]
+    'speed_limit',   # 경로 평균 제한속도 km/h — 노드링크 MAX_SPD 가중평균 [↑, sports]
 )
 
-# ── 성향 모드 프리셋: 각 축(PREFERENCE_AXES)을 얼마나 중시하는지 (baseline_b 기본값) ──
-# 실제 수치는 sanity 테스트로 보정할 것. sports = 주행속력↑·감속(신호/회전)↓.
+# ── 성향 모드 프리셋: 각 축(PREFERENCE_AXES=sports,comfort,fuel)을 얼마나 중시하는지 ──
+# safety 삭제(2026-07-18) → 안전 관련 비중은 comfort로 흡수. 합=1.
 MODE_PRESETS: dict[str, dict[str, float]] = {
-    'comfort': {'sports': 0.1, 'comfort': 0.6, 'fuel': 0.1, 'safety': 0.2},
-    'sports':  {'sports': 0.6, 'comfort': 0.2, 'fuel': 0.1, 'safety': 0.1},
-    'eco':     {'sports': 0.1, 'comfort': 0.2, 'fuel': 0.6, 'safety': 0.1},
+    'comfort': {'sports': 0.15, 'comfort': 0.70, 'fuel': 0.15},
+    'sports':  {'sports': 0.70, 'comfort': 0.20, 'fuel': 0.10},
+    'eco':     {'sports': 0.15, 'comfort': 0.20, 'fuel': 0.65},
 }
 
 
