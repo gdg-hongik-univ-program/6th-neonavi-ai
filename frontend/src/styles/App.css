@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /*공통부분디자인*/
 * {
   margin: 0;
