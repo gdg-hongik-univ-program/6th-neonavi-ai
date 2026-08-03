@@ -1,20 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// ✨ 시계 대신 '뒤로 가기' 역할을 하는 상단 바 컴포넌트 생성
-const TopNavBar = () => {
-    const navigate = useNavigate();
-    return (
-        <div className="w-full pt-4 pb-2 px-6 flex items-center bg-transparent">
-            <button
-                onClick={() => navigate(-1)}
-                className="text-2xl font-bold text-gray-700 hover:text-gray-900 transition-colors"
-            >
-                ←
-            </button>
-        </div>
-    );
-};
+import TopNavBar from '../components/TopNavBar';
+
 
 const Header = () => {
     const navigate = useNavigate();

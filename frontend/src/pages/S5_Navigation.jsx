@@ -1,20 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import TopNavBar from '../components/TopNavBar';
+
 export default function S5() {
     const navigate = useNavigate();
 
     return (
         <>
-            {/* ✨ 시계(status-bar) 대신 들어간 뒤로 가기 영역 */}
-            <div className="w-full py-4 px-5 bg-white flex items-center z-50 relative border-b border-gray-100">
-                <button
-                    onClick={() => navigate(-1)}
-                    className="text-2xl font-bold text-gray-700"
-                >
-                    ←
-                </button>
-            </div>
+            <TopNavBar title="주행 안내" />
 
             {/* 전체 화면 컨테이너 */}
             <div className="drive-page-content" style={{ height: 'calc(100vh - 60px)' }}>
