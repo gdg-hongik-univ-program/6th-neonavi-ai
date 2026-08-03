@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export default function Suggest4() {
+export default function S4() {
     const navigate = useNavigate();
     const [selectedRoute, setSelectedRoute] = useState('추천');
 

@@ -1,7 +1,6 @@
-//export default function MyPage7({ navigate }) { }
 import { useNavigate } from 'react-router-dom';
 
-export default function MyPage7() {
+export default function S7() {
     const navigate = useNavigate();
 
     return (
@@ -18,14 +17,15 @@ export default function MyPage7() {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm divide-y divide-gray-100 overflow-hidden">
-                <div className="p-5 flex justify-between items-center cursor-pointer hover:bg-gray-50" onClick={() => navigate('/profile')}>
+                <div
+                    className="p-5 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+                    onClick={() => navigate('/profile', { state: { fromMyPage: true } })}
+                >
                     <span className="font-bold text-gray-700">프로필 수정</span>
                     <span className="text-gray-400">→</span>
                 </div>
-                <div className="p-5 flex justify-between items-center cursor-pointer hover:bg-gray-50" onClick={() => navigate('/preference')}>
-                    <span className="font-bold text-gray-700">운전 성향 설문 다시하기</span>
-                    <span className="text-gray-400">→</span>
-                </div>
+
+                {/* ✨ 성향 설문 다시하기 삭제 (홈/옵션에서 매번 설정하므로 불필요) */}
                 <div className="p-5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
                     <span className="font-bold text-gray-700">주행 기록 및 피드백 내역</span>
                     <span className="text-gray-400">→</span>

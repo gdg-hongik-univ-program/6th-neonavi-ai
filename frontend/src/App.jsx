@@ -3,33 +3,29 @@ import './App.css';
 import './page.css';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-import Onboarding0 from './pages/Onboarding0';
-import ProfileSetup1 from './pages/ProfileSetup1';
-import Preference from './pages/Preference';
-import Home2 from './pages/Home2';
-import RouteOption3 from './pages/RouteOption3';
-import Suggest4 from './pages/Suggest4';
-import Navi5 from './pages/Navi5';
-import Feedback6 from './pages/Feedback6';
-import MyPage7 from './pages/MyPage7';
+import S0 from './pages/S0'; // 온보딩
+import S1 from './pages/S1'; // 회원, 프로필
+import S2 from './pages/S2'; // 메인 홈
+import S3 from './pages/S3'; // 경로 옵션 설정
+import S4 from './pages/S4'; // 경로 탐색 결과
+import S5 from './pages/S5'; // 주행 안내
+import S6 from './pages/S6'; // 주행 종료 후 피드백
+import S7 from './pages/S7'; // 마이페이지
 
 export default function App() {
   return (
-    // Wrapper부분인데 pc화면에 맞추려면 삭제해도 됩니다
     <div className="min-h-screen bg-gray-200 flex justify-center items-center">
-
       <div className="w-full max-w-lg h-screen bg-white relative shadow-2xl overflow-y-auto overflow-x-hidden">
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Onboarding0 />} />
-            <Route path="/profile" element={<ProfileSetup1 />} />
-            <Route path="/preference" element={<Preference />} />
-            <Route path="/home" element={<Home2 />} />
-            <Route path="/option" element={<RouteOption3 />} />
-            <Route path="/suggest" element={<Suggest4 />} />
-            <Route path="/navi" element={<Navi5 />} />
-            <Route path="/feedback" element={<Feedback6 />} />
-            <Route path="/mypage" element={<MyPage7 />} />
+            <Route path="/" element={<S0 />} />
+            <Route path="/profile" element={<S1 />} />
+            <Route path="/home" element={<S2 />} />
+            <Route path="/option" element={<S3 />} />
+            <Route path="/result" element={<S4 />} />
+            <Route path="/navi" element={<S5 />} />
+            <Route path="/feedback" element={<S6 />} />
+            <Route path="/mypage" element={<S7 />} />
           </Routes>
         </BrowserRouter>
       </div>
