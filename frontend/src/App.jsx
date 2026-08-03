@@ -1,16 +1,16 @@
 import React from 'react';
-import './App.css';
-import './page.css';
+import './styles/App.css';
+import './styles/page.css';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-import S0 from './pages/S0'; // 온보딩
-import S1 from './pages/S1'; // 회원, 프로필
-import S2 from './pages/S2'; // 메인 홈
-import S3 from './pages/S3'; // 경로 옵션 설정
-import S4 from './pages/S4'; // 경로 탐색 결과
-import S5 from './pages/S5'; // 주행 안내
-import S6 from './pages/S6'; // 주행 종료 후 피드백
-import S7 from './pages/S7'; // 마이페이지
+import S0 from './pages/S0_Onboarding'; // 온보딩
+import S1 from './pages/S1_Profile'; // 회원, 프로필
+import S2 from './pages/S2_Home'; // 메인 홈
+import S3 from './pages/S3_RouteOption'; // 경로 옵션 설정
+import S4 from './pages/S4_RouteResult'; // 경로 탐색 결과
+import S5 from './pages/S5_Navigation'; // 주행 안내
+import S6 from './pages/S6_Feedback'; // 주행 종료 후 피드백
+import S7 from './pages/S7_MyPage'; // 마이페이지
 
 export default function App() {
   return (
