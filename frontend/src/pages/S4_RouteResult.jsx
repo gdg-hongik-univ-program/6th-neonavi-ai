@@ -1,97 +1,119 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import TopNavBar from '../components/TopNavBar';
 
-export default function S4() {
+export default function S4_RouteResult() {
     const navigate = useNavigate();
-    const [selectedRoute, setSelectedRoute] = useState('추천');
+
+    // 선택된 경로의 ID를 관리 (기본값은 0번)
+    const [selectedRouteId, setSelectedRouteId] = useState(0);
+
+    // 스크린샷과 유사한 형태의 데이터 구조
+    const routes = [
+        {
+            id: 0,
+            title: '✨ 너네비추천',
+            time: '2시간 19분',
+            arrivalTime: '오후 5:57 도착',
+            distance: '152km',
+            fee: '4,900원'
+        },
+        {
+            id: 1,
+            title: '시간우선',
+            time: '2시간 19분',
+            arrivalTime: '오후 5:57 도착',
+            distance: '152km',
+            fee: '4,900원'
+        },
+        {
+            id: 2,
+            title: '무료도로',
+            time: '3시간 10분',
+            arrivalTime: '오후 6:49 도착',
+            distance: '162km',
+            fee: '0원'
+        }
+    ];
 
     return (
-        <div className="bg-gray-50 min-h-screen relative pb-36 font-sans">
+        <div className="relative w-full h-screen overflow-hidden flex flex-col bg-gray-100">
 
-            {/* 1. 상단 지도 영역 (화면 높이의 약 35% 차지) */}
-            <div className="w-full h-[35vh] min-h-[250px] bg-[#F2F4F8] relative flex items-center justify-center overflow-hidden z-0">
-                {/* 💡 디테일: 지도 배경 격자무늬 패턴 */}
-                <div className="absolute inset-0 opacity-40" style={{ backgroundImage: 'linear-gradient(#cbd5e1 1px, transparent 1px), linear-gradient(90deg, #cbd5e1 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-
-                <svg className="w-full h-full absolute" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <path d="M -10,110 Q 50,50 90,10" stroke="#5C5CFF" strokeWidth="2.5" fill="transparent" strokeLinecap="round" />
-                </svg>
-                {/* 깃발 마커 */}
-                <div className="absolute top-10 right-10 w-8 h-8 bg-gray-800 rounded-md flex items-center justify-center text-white shadow-lg text-sm">🏁</div>
+            {/* 1. 상단 네비바 */}
+            <div className="relative z-50 bg-white">
+                <TopNavBar title="경로 탐색 결과" />
             </div>
 
-            {/* 2. 추천 이유 하이라이트 카드 (지도 위에 살짝 걸치게 -mt-12 적용) */}
-            <div className="relative z-10 -mt-12 mx-5 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] p-6">
-                <div className="flex justify-center mb-3">
-                    <span className="bg-orange-50 text-orange-600 text-xs px-3 py-1.5 rounded-full font-bold shadow-sm">
-                        👴 어르신 동승 감지 · Comfort 모드
-                    </span>
-                </div>
-
-                <h3 className="text-xl font-extrabold text-gray-900 text-center mb-5 leading-snug">
-                    급커브 40% 적은<br />편안한 길로 안내해요
-                </h3>
-
-                <div className="flex justify-center items-center gap-5 text-sm font-bold text-gray-700 border-t border-b border-gray-100 py-3 mb-4">
-                    <span className="flex items-center gap-1"><span className="text-gray-400 font-normal">🕒</span> 32분</span>
-                    <span className="flex items-center gap-1"><span className="text-gray-400 font-normal">📍</span> 18.5km</span>
-                    <span className="flex items-center gap-1"><span className="text-green-500 font-normal">💳</span> 1,200원</span>
-                </div>
-
-                <div className="flex justify-center gap-2">
-                    <span className="px-3 py-1.5 bg-[#F4F4FF] text-[#5C5CFF] rounded-full text-[11px] font-bold tracking-wide">평탄함</span>
-                    <span className="px-3 py-1.5 bg-[#F4F4FF] text-[#5C5CFF] rounded-full text-[11px] font-bold tracking-wide">곡률 낮음</span>
-                    <span className="px-3 py-1.5 bg-[#F4F4FF] text-[#5C5CFF] rounded-full text-[11px] font-bold tracking-wide">완만한 경사</span>
+            {/* 2. 🗺️ 배경 지도 영역 (전체 화면) */}
+            <div className="absolute inset-0 top-[56px] w-full h-full bg-gray-200 z-0">
+                <div className="w-full h-full flex flex-col items-center justify-center opacity-40">
+                    <span className="text-6xl mb-4">🗺️</span>
+                    <p className="text-gray-500 font-bold text-xl">지도 API 영역</p>
                 </div>
             </div>
 
-            {/* 3. 대안 경로 비교 탭 (버튼 크기와 간격 조정) */}
-            <div className="mt-8 px-5 space-y-4 relative z-10">
-                <div
-                    onClick={() => setSelectedRoute('추천')}
-                    className={`p-5 rounded-2xl border-2 transition-all cursor-pointer flex justify-between items-center ${selectedRoute === '추천' ? 'border-[#5C5CFF] bg-white shadow-md' : 'border-gray-200 bg-white hover:border-gray-300'}`}
-                >
-                    <div>
-                        <div className={`font-bold text-lg ${selectedRoute === '추천' ? 'text-[#5C5CFF]' : 'text-gray-800'}`}>추천 경로</div>
-                        <div className="text-gray-500 text-sm mt-0.5">32분 / 18.5km</div>
-                    </div>
-                    {selectedRoute === '추천' && <span className="text-[#5C5CFF] font-bold text-sm bg-[#F4F4FF] px-3 py-1 rounded-full">선택됨</span>}
+            {/* 3. 하단 UI 컨테이너 (경로 카드 + 안내시작 버튼) */}
+            <div className="absolute bottom-0 w-full z-20 pb-8 pt-4 bg-gradient-to-t from-white via-white/90 to-transparent">
+
+                {/* 3-1. 가로 스크롤(스와이프) 경로 카드 영역 */}
+                <div className="flex overflow-x-auto gap-3 px-4 pb-4 hide-scrollbar">
+                    {routes.map(route => (
+                        <div
+                            key={route.id}
+                            onClick={() => setSelectedRouteId(route.id)}
+                            className={`min-w-[160px] flex-shrink-0 p-4 rounded-2xl cursor-pointer transition-all bg-white shadow-sm ${selectedRouteId === route.id
+                                    ? 'border-[2.5px] border-blue-600' // 선택된 카드: 두꺼운 파란 테두리
+                                    : 'border border-gray-200 opacity-90' // 미선택 카드: 얇은 회색 테두리
+                                }`}
+                        >
+                            {/* 카드 타이틀 & 상세버튼 */}
+                            <div className="flex justify-between items-center mb-1">
+                                <span className={`font-extrabold text-[15px] ${selectedRouteId === route.id ? 'text-blue-600' : 'text-gray-700'}`}>
+                                    {route.title}
+                                </span>
+                                <button className="text-[10px] text-gray-400 border border-gray-200 px-1.5 py-0.5 rounded bg-gray-50">
+                                    상세
+                                </button>
+                            </div>
+
+                            {/* 소요 시간 */}
+                            <div className="text-2xl font-black text-gray-900 tracking-tight my-1.5">
+                                {route.time}
+                            </div>
+
+                            {/* 도착 시간 및 상세 정보 */}
+                            <div className="text-sm text-gray-600 mb-1 font-medium">
+                                {route.arrivalTime}
+                            </div>
+                            <div className="text-xs text-gray-500 font-medium">
+                                {route.distance} · {route.fee}
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
-                <div
-                    onClick={() => setSelectedRoute('최단')}
-                    className={`p-5 rounded-2xl border-2 transition-all cursor-pointer flex justify-between items-center ${selectedRoute === '최단' ? 'border-[#5C5CFF] bg-white shadow-md' : 'border-gray-200 bg-white hover:border-gray-300'}`}
-                >
-                    <div>
-                        <div className={`font-bold text-lg ${selectedRoute === '최단' ? 'text-[#5C5CFF]' : 'text-gray-800'}`}>최단 경로</div>
-                        <div className="text-gray-500 text-sm mt-0.5">28분 / 17.2km <span className="text-red-400 ml-1 font-medium">(커브 많음)</span></div>
-                    </div>
-                    {selectedRoute === '최단' && <span className="text-[#5C5CFF] font-bold text-sm bg-[#F4F4FF] px-3 py-1 rounded-full">선택됨</span>}
-                </div>
+                {/* 3-2. 하단 고정 액션 버튼 영역 (스크린샷 참고) */}
+                <div className="px-4 flex gap-2">
+                    {/* 다른시간 출발 버튼 (선택적) */}
+                    <button className="flex-none w-1/3 bg-gray-500 text-white py-4 rounded-xl font-bold text-[15px] shadow-sm">
+                        다른시간 출발
+                    </button>
 
-                <div
-                    onClick={() => setSelectedRoute('무료')}
-                    className={`p-5 rounded-2xl border-2 transition-all cursor-pointer flex justify-between items-center ${selectedRoute === '무료' ? 'border-[#5C5CFF] bg-white shadow-md' : 'border-gray-200 bg-white hover:border-gray-300'}`}
-                >
-                    <div>
-                        <div className={`font-bold text-lg ${selectedRoute === '무료' ? 'text-[#5C5CFF]' : 'text-gray-800'}`}>무료 경로</div>
-                        <div className="text-gray-500 text-sm mt-0.5">36분 / 20.1km</div>
-                    </div>
-                    {selectedRoute === '무료' && <span className="text-[#5C5CFF] font-bold text-sm bg-[#F4F4FF] px-3 py-1 rounded-full">선택됨</span>}
+                    {/* 메인 안내 시작 버튼 (클릭 시 S5 주행 안내로 이동) */}
+                    <button
+                        onClick={() => navigate('/navi')}
+                        className="flex-1 bg-blue-600 text-white py-4 rounded-xl font-bold text-lg shadow-md active:bg-blue-700 transition-colors"
+                    >
+                        안내시작
+                    </button>
                 </div>
             </div>
 
-            {/* 4. 안내 시작 버튼 (하단 여백을 살짝 주어 모바일 기기 하단 쓸어올리기와 겹치지 않게 배치) */}
-            <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg px-5 py-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-[9999]">
-                <button
-                    onClick={() => navigate('/navi')}
-                    className="w-full bg-[#5C5CFF] text-white py-4 rounded-2xl font-bold text-[17px] shadow-lg hover:bg-indigo-700 active:scale-95 transition-transform cursor-pointer"
-                    style={{ pointerEvents: 'auto' }}
-                >
-                    안내 시작
-                </button>
-            </div>
-
+            {/* 가로 스크롤바 숨기기 CSS */}
+            <style jsx="true">{`
+                .hide-scrollbar::-webkit-scrollbar { display: none; }
+                .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
         </div>
     );
 }
