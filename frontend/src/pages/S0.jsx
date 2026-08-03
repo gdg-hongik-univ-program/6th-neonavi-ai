@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export default function Onboarding0() {
+export default function S0() {
     const navigate = useNavigate();
 
     return (
