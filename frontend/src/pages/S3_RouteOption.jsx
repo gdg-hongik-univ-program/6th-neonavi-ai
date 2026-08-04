@@ -1,39 +1,66 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import TopNavBar from '../components/TopNavBar';
 
+const TRIP_STORAGE_KEY = 'neonaviTrip';
+
+function readSavedTrip() {
+    try {
+        return JSON.parse(sessionStorage.getItem(TRIP_STORAGE_KEY) || '{}');
+    } catch (error) {
+        console.error('저장된 경로 정보를 읽지 못했습니다.', error);
+        return {};
+    }
+}
+
 export default function S3_RouteOption() {
     const navigate = useNavigate();
+    const location = useLocation();
 
-    const [mode, setMode] = useState('Comfort');
-    const [autoRecommend, setAutoRecommend] = useState(true);
+    const tripData = useMemo(
+        () => ({
+            ...readSavedTrip(),
+            ...(location.state || {})
+        }),
+        [location.state]
+    );
+
+    const [mode, setMode] = useState(tripData.mode || 'Comfort');
+    const [autoRecommend, setAutoRecommend] = useState(
+        tripData.autoRecommend ?? true
+    );
 
     const modes = ['Comfort', 'Sports', 'Eco'];
 
     const handleAutoRecommend = () => {
         const nextValue = !autoRecommend;
-
         setAutoRecommend(nextValue);
 
-        // 자동 추천을 다시 켜면 임시 기본 모드를 Comfort로 설정
         if (nextValue) {
             setMode('Comfort');
         }
     };
 
     const handleModeSelect = (selectedMode) => {
-        // 모드를 직접 선택하면 AI 자동 추천은 자동으로 꺼짐
         setAutoRecommend(false);
         setMode(selectedMode);
     };
 
     const handleRecommend = () => {
+        const nextTripData = {
+            ...tripData,
+            mode,
+            autoRecommend
+        };
+
+        sessionStorage.setItem(
+            TRIP_STORAGE_KEY,
+            JSON.stringify(nextTripData)
+        );
+
         navigate('/result', {
-            state: {
-                mode,
-                autoRecommend
-            }
+            state: nextTripData
         });
     };
 
@@ -42,13 +69,24 @@ export default function S3_RouteOption() {
             <TopNavBar title="경로 옵션 설정" />
 
             <main className="flex-1 p-6">
+                <section className="bg-white rounded-2xl border border-gray-200 px-4 py-4 shadow-sm mt-2">
+                    <p className="text-xs text-gray-500 mb-2">입력한 경로</p>
+                    <p className="font-bold text-gray-900 break-words">
+                        {tripData.departure || '출발지'}
+                        <span className="mx-2 text-indigo-500">→</span>
+                        {tripData.destination || '도착지'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                        동승자: {tripData.passenger || '혼자'}
+                    </p>
+                </section>
+
                 <section className="bg-gray-50 p-5 rounded-2xl border border-gray-100 mt-4">
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex justify-between items-start gap-4 mb-4">
                         <div>
                             <h2 className="font-bold text-gray-800">
                                 AI 성향 자동 추천
                             </h2>
-
                             <p className="text-sm text-gray-500 mt-1">
                                 사용자 성향에 맞는 모드를 자동으로 선택해요
                             </p>
@@ -58,7 +96,7 @@ export default function S3_RouteOption() {
                             type="checkbox"
                             checked={autoRecommend}
                             onChange={handleAutoRecommend}
-                            className="w-6 h-6 accent-indigo-600 cursor-pointer"
+                            className="w-6 h-6 accent-indigo-600 cursor-pointer flex-none"
                             aria-label="AI 성향 자동 추천"
                         />
                     </div>
@@ -78,20 +116,11 @@ export default function S3_RouteOption() {
                                         key={item}
                                         type="button"
                                         onClick={() => handleModeSelect(item)}
-                                        className={`
-                                            flex-1
-                                            py-3
-                                            rounded-xl
-                                            text-sm
-                                            font-bold
-                                            border
-                                            transition-all
-                                            ${
-                                                isSelected
-                                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                                    : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'
-                                            }
-                                        `}
+                                        className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all ${
+                                            isSelected
+                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                                : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'
+                                        }`}
                                         aria-pressed={isSelected}
                                     >
                                         {item}
@@ -104,7 +133,6 @@ export default function S3_RouteOption() {
                             <p className="text-xs text-gray-500 mb-1">
                                 현재 설정
                             </p>
-
                             <p className="font-bold text-indigo-600">
                                 {autoRecommend
                                     ? 'AI 자동 추천'
@@ -115,7 +143,6 @@ export default function S3_RouteOption() {
                 </section>
             </main>
 
-            {/* 하단 버튼 */}
             <div className="w-full bg-white px-6 pt-3 pb-8">
                 <button
                     type="button"

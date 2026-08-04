@@ -1,21 +1,34 @@
-import React, { useState } from 'react';
-import {
-    useLocation,
-    useNavigate
-} from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import TopNavBar from '../components/TopNavBar';
+
+const TRIP_STORAGE_KEY = 'neonaviTrip';
+
+function readSavedTrip() {
+    try {
+        return JSON.parse(sessionStorage.getItem(TRIP_STORAGE_KEY) || '{}');
+    } catch (error) {
+        console.error('저장된 경로 정보를 읽지 못했습니다.', error);
+        return {};
+    }
+}
 
 export default function S4_RouteResult() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // S3 페이지에서 전달받은 값
-    const selectedMode = location.state?.mode || 'Comfort';
-    const autoRecommend =
-        location.state?.autoRecommend ?? true;
+    const tripData = useMemo(
+        () => ({
+            ...readSavedTrip(),
+            ...(location.state || {})
+        }),
+        [location.state]
+    );
 
-    // 선택된 경로 ID
+    const selectedMode = tripData.mode || 'Comfort';
+    const autoRecommend = tripData.autoRecommend ?? true;
+
     const [selectedRouteId, setSelectedRouteId] = useState(0);
 
     const modeDescriptions = {
@@ -24,6 +37,7 @@ export default function S4_RouteResult() {
         Eco: '연료비와 불필요한 정차를 줄인 경제적인 경로'
     };
 
+    // 백엔드 연결 전 사용하는 임시 경로 카드 데이터입니다.
     const routes = [
         {
             id: 0,
@@ -33,104 +47,103 @@ export default function S4_RouteResult() {
             description:
                 modeDescriptions[selectedMode] ||
                 '사용자 성향에 맞춘 추천 경로',
-            time: '2시간 19분',
-            arrivalTime: '오후 5:57 도착',
-            distance: '152km',
-            fee: '4,900원'
+            time: '42분',
+            arrivalTime: '오후 3:45 도착',
+            distance: '16km',
+            fee: '0원'
         },
         {
             id: 1,
             title: '시간우선',
             description: '도착 시간이 빠른 경로',
-            time: '2시간 19분',
-            arrivalTime: '오후 5:57 도착',
-            distance: '152km',
-            fee: '4,900원'
+            time: '39분',
+            arrivalTime: '오후 3:42 도착',
+            distance: '17km',
+            fee: '0원'
         },
         {
             id: 2,
             title: '무료도로',
             description: '통행료가 없는 경로',
-            time: '3시간 10분',
-            arrivalTime: '오후 6:49 도착',
-            distance: '162km',
+            time: '46분',
+            arrivalTime: '오후 3:49 도착',
+            distance: '15km',
             fee: '0원'
         }
     ];
 
     const selectedRoute =
-        routes.find((route) => route.id === selectedRouteId) ||
-        routes[0];
+        routes.find((route) => route.id === selectedRouteId) || routes[0];
 
     const handleStartNavigation = () => {
+        const navigationData = {
+            ...tripData,
+            mode: selectedMode,
+            autoRecommend,
+            route: selectedRoute
+        };
+
+        sessionStorage.setItem(
+            TRIP_STORAGE_KEY,
+            JSON.stringify(navigationData)
+        );
+
         navigate('/navi', {
-            state: {
-                mode: selectedMode,
-                autoRecommend,
-                route: selectedRoute
-            }
+            state: navigationData
         });
     };
 
     return (
         <div className="relative w-full h-[100dvh] overflow-hidden flex flex-col bg-gray-100">
-            {/* 상단 네비게이션 */}
             <div className="relative z-50 bg-white">
                 <TopNavBar title="경로 탐색 결과" />
             </div>
 
-            {/* 지도 영역 */}
             <div className="absolute inset-0 top-[56px] w-full h-full bg-gray-200 z-0">
                 <div className="w-full h-full flex flex-col items-center justify-center opacity-40">
-                    <span className="text-6xl mb-4">
-                        🗺️
-                    </span>
-
+                    <span className="text-6xl mb-4">🗺️</span>
                     <p className="text-gray-500 font-bold text-xl">
                         지도 API 영역
                     </p>
                 </div>
             </div>
 
-            {/* 선택 모드 표시 */}
-            <div className="absolute top-[72px] left-4 right-4 z-30">
+            <div className="absolute top-[72px] left-4 right-4 z-30 space-y-2">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-3">
+                    <p className="text-xs text-gray-500 mb-1">탐색 경로</p>
+                    <p className="font-bold text-gray-900 break-words">
+                        {tripData.departure || '출발지'}
+                        <span className="mx-2 text-indigo-500">→</span>
+                        {tripData.destination || '도착지'}
+                    </p>
+                </div>
+
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-3">
                     <p className="text-xs text-gray-500 mb-1">
                         현재 적용 모드
                     </p>
-
                     <div className="flex items-center justify-between">
                         <p className="font-extrabold text-indigo-600">
-                            {autoRecommend
-                                ? 'AI 자동 추천'
-                                : selectedMode}
+                            {autoRecommend ? 'AI 자동 추천' : selectedMode}
                         </p>
-
                         <span className="text-xs text-gray-500">
-                            {autoRecommend
-                                ? '성향 기반'
-                                : '직접 선택'}
+                            {autoRecommend ? '성향 기반' : '직접 선택'}
                         </span>
                     </div>
                 </div>
             </div>
 
-            {/* 하단 경로 카드와 버튼 */}
             <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-white via-white/95 to-transparent pt-8 pb-8">
-                {/* 경로 카드 */}
                 <div className="flex overflow-x-auto gap-3 px-4 pb-4 hide-scrollbar">
                     {routes.map((route) => {
-                        const isSelected =
-                            selectedRouteId === route.id;
+                        const isSelected = selectedRouteId === route.id;
 
                         return (
                             <div
                                 key={route.id}
                                 role="button"
                                 tabIndex={0}
-                                onClick={() =>
-                                    setSelectedRouteId(route.id)
-                                }
+                                onClick={() => setSelectedRouteId(route.id)}
                                 onKeyDown={(event) => {
                                     if (
                                         event.key === 'Enter' ||
@@ -139,33 +152,19 @@ export default function S4_RouteResult() {
                                         setSelectedRouteId(route.id);
                                     }
                                 }}
-                                className={`
-                                    min-w-[180px]
-                                    flex-shrink-0
-                                    p-4
-                                    rounded-2xl
-                                    cursor-pointer
-                                    transition-all
-                                    bg-white
-                                    shadow-sm
-                                    ${
-                                        isSelected
-                                            ? 'border-[2.5px] border-indigo-600'
-                                            : 'border border-gray-200 opacity-90'
-                                    }
-                                `}
+                                className={`min-w-[180px] flex-shrink-0 p-4 rounded-2xl cursor-pointer transition-all bg-white shadow-sm ${
+                                    isSelected
+                                        ? 'border-[2.5px] border-indigo-600'
+                                        : 'border border-gray-200 opacity-90'
+                                }`}
                             >
                                 <div className="flex justify-between items-start gap-2 mb-1">
                                     <span
-                                        className={`
-                                            font-extrabold
-                                            text-[15px]
-                                            ${
-                                                isSelected
-                                                    ? 'text-indigo-600'
-                                                    : 'text-gray-700'
-                                            }
-                                        `}
+                                        className={`font-extrabold text-[15px] ${
+                                            isSelected
+                                                ? 'text-indigo-600'
+                                                : 'text-gray-700'
+                                        }`}
                                     >
                                         {route.title}
                                     </span>
@@ -173,9 +172,7 @@ export default function S4_RouteResult() {
                                     <button
                                         type="button"
                                         className="flex-none text-[10px] text-gray-400 border border-gray-200 px-1.5 py-0.5 rounded bg-gray-50"
-                                        onClick={(event) => {
-                                            event.stopPropagation();
-                                        }}
+                                        onClick={(event) => event.stopPropagation()}
                                     >
                                         상세
                                     </button>
@@ -201,7 +198,6 @@ export default function S4_RouteResult() {
                     })}
                 </div>
 
-                {/* 하단 액션 버튼 */}
                 <div className="px-4 flex gap-2">
                     <button
                         type="button"
