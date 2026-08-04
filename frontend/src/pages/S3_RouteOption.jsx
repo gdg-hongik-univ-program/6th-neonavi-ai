@@ -3,48 +3,128 @@ import { useNavigate } from 'react-router-dom';
 
 import TopNavBar from '../components/TopNavBar';
 
-export default function S3() {
+export default function S3_RouteOption() {
     const navigate = useNavigate();
+
     const [mode, setMode] = useState('Comfort');
     const [autoRecommend, setAutoRecommend] = useState(true);
 
+    const modes = ['Comfort', 'Sports', 'Eco'];
+
+    const handleAutoRecommend = () => {
+        const nextValue = !autoRecommend;
+
+        setAutoRecommend(nextValue);
+
+        // 자동 추천을 다시 켜면 임시 기본 모드를 Comfort로 설정
+        if (nextValue) {
+            setMode('Comfort');
+        }
+    };
+
+    const handleModeSelect = (selectedMode) => {
+        // 모드를 직접 선택하면 AI 자동 추천은 자동으로 꺼짐
+        setAutoRecommend(false);
+        setMode(selectedMode);
+    };
+
+    const handleRecommend = () => {
+        navigate('/result', {
+            state: {
+                mode,
+                autoRecommend
+            }
+        });
+    };
+
     return (
-        <div className="bg-white min-h-screen relative pb-24">
+        <div className="min-h-[100dvh] bg-white flex flex-col">
             <TopNavBar title="경로 옵션 설정" />
 
-            <div className="p-6">
-                <div className="space-y-8">
-                    <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 mt-4">
-                        <div className="flex justify-between items-center mb-4">
-                            <span className="font-bold text-gray-800">AI 성향 자동 추천</span>
-                            <input type="checkbox" checked={autoRecommend} onChange={() => setAutoRecommend(!autoRecommend)} className="toggle-checkbox w-6 h-6 accent-indigo-600" />
+            <main className="flex-1 p-6">
+                <section className="bg-gray-50 p-5 rounded-2xl border border-gray-100 mt-4">
+                    <div className="flex justify-between items-center mb-4">
+                        <div>
+                            <h2 className="font-bold text-gray-800">
+                                AI 성향 자동 추천
+                            </h2>
+
+                            <p className="text-sm text-gray-500 mt-1">
+                                사용자 성향에 맞는 모드를 자동으로 선택해요
+                            </p>
                         </div>
 
-                        <p className="text-sm text-gray-500 mb-4">원하시면 모드를 직접 고를 수도 있어요</p>
-                        <div className="flex space-x-2">
-                            {['Comfort', 'Sports', 'Eco'].map(m => (
-                                <button
-                                    key={m}
-                                    disabled={autoRecommend}
-                                    onClick={() => setMode(m)}
-                                    className={`flex-1 py-3 rounded-xl text-sm font-bold transition ${autoRecommend ? 'opacity-50 bg-gray-200' : mode === m ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-200'}`}
-                                >
-                                    {m}
-                                </button>
-                            ))}
+                        <input
+                            type="checkbox"
+                            checked={autoRecommend}
+                            onChange={handleAutoRecommend}
+                            className="w-6 h-6 accent-indigo-600 cursor-pointer"
+                            aria-label="AI 성향 자동 추천"
+                        />
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-3">
+                            직접 모드 선택
+                        </p>
+
+                        <div className="flex gap-2">
+                            {modes.map((item) => {
+                                const isSelected =
+                                    !autoRecommend && mode === item;
+
+                                return (
+                                    <button
+                                        key={item}
+                                        type="button"
+                                        onClick={() => handleModeSelect(item)}
+                                        className={`
+                                            flex-1
+                                            py-3
+                                            rounded-xl
+                                            text-sm
+                                            font-bold
+                                            border
+                                            transition-all
+                                            ${
+                                                isSelected
+                                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                                    : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'
+                                            }
+                                        `}
+                                        aria-pressed={isSelected}
+                                    >
+                                        {item}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div className="mt-4 bg-white rounded-xl border border-gray-200 px-4 py-3">
+                            <p className="text-xs text-gray-500 mb-1">
+                                현재 설정
+                            </p>
+
+                            <p className="font-bold text-indigo-600">
+                                {autoRecommend
+                                    ? 'AI 자동 추천'
+                                    : `${mode} 모드`}
+                            </p>
                         </div>
                     </div>
-                </div>
+                </section>
+            </main>
+
+            {/* 하단 버튼 */}
+            <div className="w-full bg-white px-6 pt-3 pb-8">
+                <button
+                    type="button"
+                    onClick={handleRecommend}
+                    className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-sm active:bg-indigo-700 transition-colors"
+                >
+                    분석하고 경로 추천받기
+                </button>
             </div>
-
-            {/* 하단 고정 버튼 */}
-            <button
-                onClick={() => navigate('/result')}
-                className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg absolute bottom-8 left-0 right-0 mx-6 w-[calc(100%-3rem)]"
-            >
-                분석하고 경로 추천받기
-            </button>
-
         </div>
     );
 }
