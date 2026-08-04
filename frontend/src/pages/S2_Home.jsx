@@ -50,7 +50,11 @@ export default function S2_Home() {
             passenger
         };
 
-        sessionStorage.setItem(TRIP_STORAGE_KEY, JSON.stringify(tripData));
+        sessionStorage.setItem(
+            TRIP_STORAGE_KEY,
+            JSON.stringify(tripData)
+        );
+
         setErrorMessage('');
 
         navigate('/option', {
@@ -60,7 +64,9 @@ export default function S2_Home() {
 
     const handleSavedLocation = (location) => {
         if (location.startsWith('최근:')) {
-            setDestination(location.replace('최근:', '').trim());
+            setDestination(
+                location.replace('최근:', '').trim()
+            );
             return;
         }
 
@@ -76,25 +82,41 @@ export default function S2_Home() {
 
     return (
         <>
-            <TopNavBar />
+            {/*
+                이 페이지의 화살표는 방문 기록을 따르지 않고
+                항상 시작 페이지 "/"로 이동
+            */}
+            <TopNavBar backTo="/" />
 
-            <div className="page-content" style={{ paddingBottom: '80px' }}>
+            <div
+                className="page-content"
+                style={{ paddingBottom: '80px' }}
+            >
                 <Header />
 
                 <div className="title-subtitle-section">
-                    <h2 className="main-title">오늘 어디로 가세요?</h2>
+                    <h2 className="main-title">
+                        오늘 어디로 가세요?
+                    </h2>
+
                     <p className="main-subtitle">
-                        출발지와 도착지를 입력하면,<br />
+                        출발지와 도착지를 입력하면,
+                        <br />
                         너에게 꼭 맞는 길을 찾아드려요.
                     </p>
                 </div>
 
                 <div className="input-field">
-                    <span className="input-icon">📍</span>
+                    <span className="input-icon">
+                        📍
+                    </span>
+
                     <input
                         type="text"
                         value={departure}
-                        onChange={(event) => setDeparture(event.target.value)}
+                        onChange={(event) =>
+                            setDeparture(event.target.value)
+                        }
                         placeholder="출발지"
                         className="input-box"
                         aria-label="출발지"
@@ -102,11 +124,16 @@ export default function S2_Home() {
                 </div>
 
                 <div className="input-field">
-                    <span className="input-icon">🏁</span>
+                    <span className="input-icon">
+                        🏁
+                    </span>
+
                     <input
                         type="text"
                         value={destination}
-                        onChange={(event) => setDestination(event.target.value)}
+                        onChange={(event) =>
+                            setDestination(event.target.value)
+                        }
                         placeholder="도착지"
                         className="input-box"
                         aria-label="도착지"
@@ -114,12 +141,18 @@ export default function S2_Home() {
                 </div>
 
                 <div className="saved-locations-row">
-                    {['집', '회사', '최근: 강릉역'].map((location) => (
+                    {[
+                        '집',
+                        '회사',
+                        '최근: 강릉역'
+                    ].map((location) => (
                         <button
                             key={location}
                             type="button"
                             className="location-tag"
-                            onClick={() => handleSavedLocation(location)}
+                            onClick={() =>
+                                handleSavedLocation(location)
+                            }
                         >
                             {location}
                         </button>
@@ -132,16 +165,31 @@ export default function S2_Home() {
                     </label>
 
                     <div className="flex gap-2">
-                        {['혼자', '가족', '노약자', '친구'].map((item) => (
+                        {[
+                            '혼자',
+                            '가족',
+                            '노약자',
+                            '친구'
+                        ].map((item) => (
                             <button
                                 key={item}
                                 type="button"
-                                onClick={() => setPassenger(item)}
-                                className={`flex-1 py-3 rounded-xl text-sm font-bold transition ${
-                                    passenger === item
-                                        ? 'bg-indigo-600 text-white shadow-md'
-                                        : 'border border-gray-200 text-gray-600 bg-white'
-                                }`}
+                                onClick={() =>
+                                    setPassenger(item)
+                                }
+                                className={`
+                                    flex-1
+                                    py-3
+                                    rounded-xl
+                                    text-sm
+                                    font-bold
+                                    transition
+                                    ${
+                                        passenger === item
+                                            ? 'bg-indigo-600 text-white shadow-md'
+                                            : 'border border-gray-200 text-gray-600 bg-white'
+                                    }
+                                `}
                             >
                                 {item}
                             </button>
@@ -165,7 +213,9 @@ export default function S2_Home() {
             </div>
 
             <div className="device-footer">
-                <div className="footer-panel">너네비: 경로 입력</div>
+                <div className="footer-panel">
+                    너네비: 경로 입력
+                </div>
             </div>
         </>
     );
