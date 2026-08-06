@@ -12,8 +12,10 @@ db.sqlite3
 /backend/staticfiles/
 /backend/media/
 
-# ---- Node / Vite ----
+# ---- Node / CRA·Vite ----
 node_modules/
+# CRA 빌드 산출물 (react-scripts build)
+build/
 dist/
 dist-ssr/
 *.local
