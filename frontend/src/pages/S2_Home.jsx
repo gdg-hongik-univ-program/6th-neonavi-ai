@@ -53,7 +53,9 @@ export default function S2_Home() {
 
     const [departure, setDeparture] = useState('');
     const [destination, setDestination] = useState('');
+    // 동승자·짐은 여정마다 달라지므로 프로필이 아니라 여기서 받는다.
     const [passenger, setPassenger] = useState('혼자');
+    const [loadKg, setLoadKg] = useState(0);
     const [errorMessage, setErrorMessage] = useState('');
 
     // 마지막으로 검색한 도착지를 불러옴
@@ -77,7 +79,8 @@ export default function S2_Home() {
         const tripData = {
             departure: trimmedDeparture,
             destination: trimmedDestination,
-            passenger
+            passenger,
+            loadKg
         };
 
         try {
@@ -259,6 +262,45 @@ export default function S2_Home() {
                                 `}
                             >
                                 {item}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 짐 정도 선택 */}
+                <div className="mt-6 mb-4 px-1">
+                    <label className="block text-sm font-bold text-gray-700 mb-3">
+                        짐은 얼마나 싣나요?
+                        <span className="text-indigo-600 ml-2">
+                            {loadKg} kg
+                        </span>
+                    </label>
+
+                    <div className="flex gap-2">
+                        {[
+                            { label: '거의 없음', value: 0 },
+                            { label: '보통', value: 30 },
+                            { label: '많음', value: 70 }
+                        ].map((item) => (
+                            <button
+                                key={item.value}
+                                type="button"
+                                onClick={() => setLoadKg(item.value)}
+                                className={`
+                                    flex-1
+                                    py-3
+                                    rounded-xl
+                                    text-sm
+                                    font-bold
+                                    transition
+                                    ${
+                                        loadKg === item.value
+                                            ? 'bg-indigo-600 text-white shadow-md'
+                                            : 'border border-gray-200 text-gray-600 bg-white'
+                                    }
+                                `}
+                            >
+                                {item.label}
                             </button>
                         ))}
                     </div>

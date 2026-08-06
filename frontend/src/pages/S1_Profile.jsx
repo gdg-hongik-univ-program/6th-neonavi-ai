@@ -1,5 +1,12 @@
-import { React, useState } from 'react';
+import { React, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+
+import { saveProfile } from '../api/naviApi';
+import {
+    DEFAULT_PROFILE,
+    readProfile,
+    writeProfile
+} from '../utils/profileStorage';
 
 export default function S1() {
     const navigate = useNavigate();
@@ -7,26 +14,50 @@ export default function S1() {
 
     const isFromMyPage = location.state?.fromMyPage || false;
 
-    const handleBottomButtonClick = () => {
-        if (isFromMyPage) {
-            alert("저장 완료");
-            navigate(-1);
-        } else {
-            navigate('/home'); // ✨ 기존 preference 대신 홈으로 바로 이동
-        }
-    };
+    // 동승자·짐은 여정마다 바뀌는 값이라 홈(S2)에서 입력받는다.
+    const [profile, setProfile] = useState(DEFAULT_PROFILE);
+    const [isSaving, setIsSaving] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
-    // ✨ passenger 항목 제거됨
-    const [profile, setProfile] = useState({
-        age: '',
-        gender: 'M',
-        carType: 'sedan',
-        loadKg: 0,
-        carAge: 0
-    });
+    // 저장해 둔 프로필이 있으면 불러와 채운다(수정 진입 포함).
+    useEffect(() => {
+        const saved = readProfile();
+        if (saved) {
+            setProfile((prev) => ({ ...prev, ...saved }));
+        }
+    }, []);
 
     const updateProfile = (key, value) => {
         setProfile(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleBottomButtonClick = async () => {
+        if (!profile.age) {
+            setErrorMessage('나이를 입력해 주세요.');
+            return;
+        }
+
+        setIsSaving(true);
+        setErrorMessage('');
+
+        try {
+            // 서버 저장 + 브라우저 캐시(추천 요청에 사용)
+            const saved = await saveProfile(profile);
+            writeProfile({ ...profile, id: saved.id });
+
+            if (isFromMyPage) {
+                navigate(-1);
+            } else {
+                navigate('/home');
+            }
+        } catch (error) {
+            console.error('프로필 저장 실패', error);
+            setErrorMessage(
+                '프로필을 저장하지 못했습니다. 서버 상태를 확인해 주세요.'
+            );
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -74,19 +105,7 @@ export default function S1() {
                     </div>
                 </div>
 
-                {/* 4. 적재량 */}
-                <div>
-                    <label className="block text-base font-extrabold text-gray-900 mb-3">
-                        차량 적재량 <span className="text-indigo-600 ml-2">{profile.loadKg} kg</span>
-                    </label>
-                    <input
-                        type="range" min="0" max="100" step="5" value={profile.loadKg}
-                        onChange={(e) => updateProfile('loadKg', Number(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                    />
-                </div>
-
-                {/* 5. 차량 연식 */}
+                {/* 4. 차량 연식 */}
                 <div>
                     <label className="block text-base font-extrabold text-gray-900 mb-3">
                         차량 연식 <span className="text-indigo-600 ml-2">{profile.carAge} 년</span>
@@ -100,11 +119,22 @@ export default function S1() {
             </div>
 
             <div className="absolute bottom-0 left-0 w-full p-4 bg-white border-t">
+                {errorMessage && (
+                    <p className="mb-3 text-sm font-semibold text-red-500">
+                        {errorMessage}
+                    </p>
+                )}
+
                 <button
                     onClick={handleBottomButtonClick}
-                    className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg"
+                    disabled={isSaving}
+                    className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg disabled:bg-gray-400"
                 >
-                    {isFromMyPage ? '저장하기' : '다음으로'}
+                    {isSaving
+                        ? '저장 중...'
+                        : isFromMyPage
+                            ? '저장하기'
+                            : '다음으로'}
                 </button>
             </div>
         </div>

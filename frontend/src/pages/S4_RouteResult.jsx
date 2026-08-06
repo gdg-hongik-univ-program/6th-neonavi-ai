@@ -1,7 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import TopNavBar from '../components/TopNavBar';
+import { getRouteRecommendation } from '../api/naviApi';
+import { readProfile } from '../utils/profileStorage';
+import { buildRecommendRequest } from '../utils/buildRecommendRequest';
 
 const TRIP_STORAGE_KEY = 'neonaviTrip';
 
@@ -29,48 +32,72 @@ export default function S4_RouteResult() {
     const selectedMode = tripData.mode || 'Comfort';
     const autoRecommend = tripData.autoRecommend ?? true;
 
-    const [selectedRouteId, setSelectedRouteId] = useState(0);
+    const [selectedRouteId, setSelectedRouteId] = useState(null);
+    const [routes, setRoutes] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [errorMessage, setErrorMessage] = useState('');
 
-    const modeDescriptions = {
-        Comfort: '급커브와 잦은 정차가 적은 편안한 경로',
-        Sports: '주행 흐름과 속도를 고려한 역동적인 경로',
-        Eco: '연료비와 불필요한 정차를 줄인 경제적인 경로'
+    // 도착 예정 시각 = 지금 + 소요시간
+    const formatArrival = (durationMin) => {
+        const arrival = new Date(Date.now() + durationMin * 60 * 1000);
+        return arrival.toLocaleTimeString('ko-KR', {
+            hour: 'numeric',
+            minute: '2-digit'
+        }) + ' 도착';
     };
 
-    // 백엔드 연결 전 사용하는 임시 경로 카드 데이터입니다.
-    const routes = [
-        {
-            id: 0,
-            title: autoRecommend
-                ? '✨ 너네비추천'
-                : `✨ ${selectedMode} 추천`,
-            description:
-                modeDescriptions[selectedMode] ||
-                '사용자 성향에 맞춘 추천 경로',
-            time: '42분',
-            arrivalTime: '오후 3:45 도착',
-            distance: '16km',
-            fee: '0원'
-        },
-        {
-            id: 1,
-            title: '시간우선',
-            description: '도착 시간이 빠른 경로',
-            time: '39분',
-            arrivalTime: '오후 3:42 도착',
-            distance: '17km',
-            fee: '0원'
-        },
-        {
-            id: 2,
-            title: '무료도로',
-            description: '통행료가 없는 경로',
-            time: '46분',
-            arrivalTime: '오후 3:49 도착',
-            distance: '15km',
-            fee: '0원'
-        }
-    ];
+    // 프로필 + 여정 정보로 추천 경로를 받아온다.
+    // 추천은 무거운 요청(지오코딩·경로수집·공간조인)이라 같은 조건이면 요청을 재사용한다.
+    // 요청 자체를 캐시하므로 개발 모드(StrictMode)의 이중 마운트에서도 결과가 그대로 반영된다.
+    const requestKey = `${tripData.departure}|${tripData.destination}|${tripData.passenger}|${tripData.loadKg}|${selectedMode}|${autoRecommend}`;
+
+    useEffect(() => {
+        let isActive = true;
+
+        const fetchRoutes = async () => {
+            setIsLoading(true);
+            setErrorMessage('');
+
+            try {
+                const request = buildRecommendRequest(readProfile(), {
+                    ...tripData,
+                    mode: selectedMode,
+                    autoRecommend
+                });
+
+                const data = await getRouteRecommendation(request);
+                if (!isActive) return;
+
+                const list = (data.routes || []).map((route, index) => ({
+                    id: index,
+                    routeId: route.route_id,
+                    title: route.title,
+                    description: route.reason,
+                    time: `${route.duration_min}분`,
+                    arrivalTime: formatArrival(route.duration_min),
+                    distance: `${route.distance_km}km`,
+                    fee: `${route.toll.toLocaleString()}원`
+                }));
+
+                setRoutes(list);
+                setSelectedRouteId(list.length ? 0 : null);
+            } catch (error) {
+                if (!isActive) return;
+                console.error('경로 추천 실패', error);
+                setErrorMessage(error.message || '경로를 불러오지 못했습니다.');
+                setRoutes([]);
+            } finally {
+                if (isActive) setIsLoading(false);
+            }
+        };
+
+        fetchRoutes();
+        return () => {
+            isActive = false;
+        };
+        // requestKey 가 바뀔 때만 다시 추천을 받는다.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [requestKey]);
 
     const selectedRoute =
         routes.find((route) => route.id === selectedRouteId) || routes[0];
@@ -134,6 +161,32 @@ export default function S4_RouteResult() {
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-white via-white/95 to-transparent pt-8 pb-8">
+                {isLoading && (
+                    <div className="px-4 pb-4">
+                        <div className="bg-white rounded-2xl border border-gray-200 px-4 py-6 text-center">
+                            <p className="font-bold text-gray-700">
+                                성향에 맞는 경로를 찾는 중...
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                                도로·신호·경사 정보를 분석하고 있어요
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {!isLoading && errorMessage && (
+                    <div className="px-4 pb-4">
+                        <div className="bg-white rounded-2xl border border-red-200 px-4 py-5">
+                            <p className="font-bold text-red-500 mb-1">
+                                경로를 불러오지 못했습니다
+                            </p>
+                            <p className="text-xs text-gray-600 whitespace-pre-line">
+                                {errorMessage}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex overflow-x-auto gap-3 px-4 pb-4 hide-scrollbar">
                     {routes.map((route) => {
                         const isSelected = selectedRouteId === route.id;
@@ -209,7 +262,8 @@ export default function S4_RouteResult() {
                     <button
                         type="button"
                         onClick={handleStartNavigation}
-                        className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-md active:bg-indigo-700 transition-colors"
+                        disabled={!selectedRoute}
+                        className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-md active:bg-indigo-700 transition-colors disabled:bg-gray-400"
                     >
                         안내시작
                     </button>
