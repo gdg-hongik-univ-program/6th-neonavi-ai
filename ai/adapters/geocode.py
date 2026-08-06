@@ -31,6 +31,38 @@ def _first_doc(url: str, query: str, timeout: int = 5) -> dict | None:
     return docs[0] if docs else None
 
 
+def search_places(query: str, size: int = 8) -> list[dict]:
+    """장소 검색 결과 목록 → [{name, address, lng, lat}, ...].
+
+    사용자가 "강남역"처럼 모호하게 입력했을 때 후보를 보여주고 고르게 하기 위한 용도.
+    (geocode 는 첫 결과를 자동 선택하지만, 이 함수는 선택지를 그대로 돌려준다)
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+    try:
+        resp = requests.get(KEYWORD_URL, headers=_headers(),
+                            params={"query": q, "size": max(1, min(size, 15))}, timeout=5)
+    except requests.RequestException:
+        return []
+    if resp.status_code != 200:
+        return []
+
+    places = []
+    for doc in resp.json().get("documents", []):
+        try:
+            lng, lat = float(doc["x"]), float(doc["y"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        places.append({
+            "name": doc.get("place_name") or doc.get("address_name", q),
+            "address": doc.get("road_address_name") or doc.get("address_name", ""),
+            "lng": lng,
+            "lat": lat,
+        })
+    return places
+
+
 def geocode(query: str) -> tuple[tuple[float, float], str]:
     """장소명/주소 → ((lng, lat), 해석된 이름).
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import TopNavBar from '../components/TopNavBar';
+import PlaceInput from '../components/PlaceInput';
 
 const TRIP_STORAGE_KEY = 'neonaviTrip';
 const RECENT_DESTINATION_KEY = 'neonaviRecentDestination';
@@ -53,6 +54,9 @@ export default function S2_Home() {
 
     const [departure, setDeparture] = useState('');
     const [destination, setDestination] = useState('');
+    // 검색 목록에서 고른 장소({name, lng, lat}). 고르지 않으면 백엔드가 이름으로 찾는다.
+    const [departurePlace, setDeparturePlace] = useState(null);
+    const [destinationPlace, setDestinationPlace] = useState(null);
     // 동승자·짐은 여정마다 달라지므로 프로필이 아니라 여기서 받는다.
     const [passenger, setPassenger] = useState('혼자');
     const [loadKg, setLoadKg] = useState(0);
@@ -79,6 +83,9 @@ export default function S2_Home() {
         const tripData = {
             departure: trimmedDeparture,
             destination: trimmedDestination,
+            // 목록에서 고른 경우 좌표까지 넘겨 지점을 확정한다.
+            departurePlace,
+            destinationPlace,
             passenger,
             loadKg
         };
@@ -174,41 +181,31 @@ export default function S2_Home() {
                     </p>
                 </div>
 
-                {/* 출발지 입력 */}
-                <div className="input-field">
-                    <span className="input-icon">
-                        📍
-                    </span>
-
-                    <input
-                        type="text"
-                        value={departure}
-                        onChange={(event) => {
-                            setDeparture(event.target.value);
+                {/* 출발지 — 검색 후 목록에서 선택하면 좌표까지 확정된다 */}
+                <div className="mb-3">
+                    <PlaceInput
+                        icon="📍"
+                        placeholder="출발지"
+                        text={departure}
+                        onTextChange={(value) => {
+                            setDeparture(value);
                             setErrorMessage('');
                         }}
-                        placeholder="출발지"
-                        className="input-box"
-                        aria-label="출발지"
+                        onSelect={setDeparturePlace}
                     />
                 </div>
 
-                {/* 도착지 입력 */}
-                <div className="input-field">
-                    <span className="input-icon">
-                        🏁
-                    </span>
-
-                    <input
-                        type="text"
-                        value={destination}
-                        onChange={(event) => {
-                            setDestination(event.target.value);
+                {/* 도착지 */}
+                <div className="mb-3">
+                    <PlaceInput
+                        icon="🏁"
+                        placeholder="도착지"
+                        text={destination}
+                        onTextChange={(value) => {
+                            setDestination(value);
                             setErrorMessage('');
                         }}
-                        placeholder="도착지"
-                        className="input-box"
-                        aria-label="도착지"
+                        onSelect={setDestinationPlace}
                     />
                 </div>
 

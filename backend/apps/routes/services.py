@@ -85,6 +85,14 @@ def build_model_profile(profile: dict, passenger, load_kg) -> dict:
     }
 
 
+def _path(route) -> list:
+    """경로 폴리라인 → 지도용 [{lng, lat}, ...].
+
+    좌표는 소수점 6자리(≈10cm)면 지도 표시에 충분하다. 경로당 200~900점.
+    """
+    return [{'lng': round(x, 6), 'lat': round(y, 6)} for x, y in (route.coords or [])]
+
+
 def _title(rank: int, auto_recommend: bool, mode: str) -> str:
     if rank == 0:
         return '✨ 너네비추천' if auto_recommend else f'✨ {MODE_LABEL.get(mode, mode)} 추천'
@@ -135,8 +143,9 @@ def recommend(payload: dict) -> dict:
             'distance_km': round(route.distance_km, 1),
             'duration_min': round(route.duration_min),
             'toll': int(route.toll),
-            'axes': rec.features,      # 성향축별 만족도(설명용)
-            'bound': route.bound,      # FE 지도 표시용
+            'axes': rec.features,       # 성향축별 만족도(설명용)
+            'bound': route.bound,       # 지도 초기 영역
+            'path': _path(route),       # 지도에 그릴 폴리라인
         })
 
     return {

@@ -27,9 +27,16 @@ export function buildRecommendRequest(profile, trip) {
         },
         passenger: PASSENGER_MAP[trip.passenger] || trip.passenger || 'alone',
         load_kg: Number(trip.loadKg || 0),
-        origin: trip.departure,
-        destination: trip.destination,
+        // 검색 목록에서 고른 장소면 좌표를 그대로 쓰고, 아니면 이름으로 백엔드가 찾는다.
+        origin: toPoint(trip.departurePlace) || trip.departure,
+        destination: toPoint(trip.destinationPlace) || trip.destination,
         mode: (trip.mode || 'comfort').toLowerCase(),
         auto_recommend: trip.autoRecommend ?? true
     };
+}
+
+/** 선택한 장소 → 백엔드가 받는 좌표 형식 */
+function toPoint(place) {
+    if (!place || place.lng == null || place.lat == null) return null;
+    return { lng: place.lng, lat: place.lat, name: place.name };
 }

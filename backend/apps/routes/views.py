@@ -11,6 +11,8 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+from ai.adapters.geocode import search_places
+
 from . import services
 
 
@@ -21,3 +23,15 @@ def recommend(request):
     except services.RecommendError as exc:
         return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
     return Response(result)
+
+
+@api_view(['GET'])
+def places(request):
+    """장소 검색 — 출발지·도착지 입력 자동완성용.
+
+    GET /api/routes/places/?q=강남역 → {places:[{name,address,lng,lat}, ...]}
+    """
+    query = request.query_params.get('q', '')
+    if not query.strip():
+        return Response({'places': []})
+    return Response({'places': search_places(query)})

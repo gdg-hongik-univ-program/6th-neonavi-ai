@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import TopNavBar from '../components/TopNavBar';
+import RouteMap from '../components/RouteMap';
 import { getRouteRecommendation } from '../api/naviApi';
 import { readProfile } from '../utils/profileStorage';
 import { buildRecommendRequest } from '../utils/buildRecommendRequest';
@@ -76,7 +77,8 @@ export default function S4_RouteResult() {
                     time: `${route.duration_min}분`,
                     arrivalTime: formatArrival(route.duration_min),
                     distance: `${route.distance_km}km`,
-                    fee: `${route.toll.toLocaleString()}원`
+                    fee: `${route.toll.toLocaleString()}원`,
+                    path: route.path || []      // 지도에 그릴 좌표
                 }));
 
                 setRoutes(list);
@@ -127,12 +129,20 @@ export default function S4_RouteResult() {
             </div>
 
             <div className="absolute inset-0 top-[56px] w-full h-full bg-gray-200 z-0">
-                <div className="w-full h-full flex flex-col items-center justify-center opacity-40">
-                    <span className="text-6xl mb-4">🗺️</span>
-                    <p className="text-gray-500 font-bold text-xl">
-                        지도 API 영역
-                    </p>
-                </div>
+                {routes.length > 0 ? (
+                    <RouteMap
+                        routes={routes}
+                        selectedId={selectedRouteId ?? 0}
+                        onSelect={setSelectedRouteId}
+                    />
+                ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center opacity-40">
+                        <span className="text-6xl mb-4">🗺️</span>
+                        <p className="text-gray-500 font-bold text-xl">
+                            {isLoading ? '경로를 찾는 중' : '표시할 경로가 없습니다'}
+                        </p>
+                    </div>
+                )}
             </div>
 
             <div className="absolute top-[72px] left-4 right-4 z-30 space-y-2">

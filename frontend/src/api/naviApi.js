@@ -41,6 +41,16 @@ export const fetchProfile = async () => {
     return response.json();
 };
 
+/* 장소 검색 (S2_Home 자동완성) — "강남역" 같은 입력의 후보 목록 */
+export const searchPlaces = async (query) => {
+    const response = await fetch(
+        `${BASE_URL}/api/routes/places/?q=${encodeURIComponent(query)}`
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.places || [];
+};
+
 /* 경로 추천 (S4_RouteResult) — 랭킹된 경로 리스트를 받는다.
    지오코딩·경로수집·공간조인이 들어가 응답이 느리므로,
    같은 조건의 요청이 이미 진행 중이면 그 결과를 함께 쓴다. */
