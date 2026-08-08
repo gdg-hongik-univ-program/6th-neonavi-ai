@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import TopNavBar from '../components/TopNavBar';
 import RouteMap from '../components/RouteMap';
+import DepartureTimeModal from '../components/S4_Timesetting'; // 모달 컴포넌트 추가
 import { getRouteRecommendation } from '../api/naviApi';
 import { readProfile } from '../utils/profileStorage';
 import { buildRecommendRequest } from '../utils/buildRecommendRequest';
@@ -38,19 +39,23 @@ export default function S4_RouteResult() {
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // 도착 예정 시각 = 지금 + 소요시간
+    // 💡 모달 상태 및 설정된 시간 상태 추가
+    const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
+    const [departureTime, setDepartureTime] = useState(tripData.departureTime || 'now');
+
+    // 도착 예정 시각 = 출발 설정 시간(또는 지금) + 소요시간
     const formatArrival = (durationMin) => {
-        const arrival = new Date(Date.now() + durationMin * 60 * 1000);
+        const baseTime = departureTime === 'now' ? Date.now() : new Date(departureTime).getTime();
+        const arrival = new Date(baseTime + durationMin * 60 * 1000);
+
         return arrival.toLocaleTimeString('ko-KR', {
             hour: 'numeric',
             minute: '2-digit'
         }) + ' 도착';
     };
 
-    // 프로필 + 여정 정보로 추천 경로를 받아온다.
-    // 추천은 무거운 요청(지오코딩·경로수집·공간조인)이라 같은 조건이면 요청을 재사용한다.
-    // 요청 자체를 캐시하므로 개발 모드(StrictMode)의 이중 마운트에서도 결과가 그대로 반영된다.
-    const requestKey = `${tripData.departure}|${tripData.destination}|${tripData.passenger}|${tripData.loadKg}|${selectedMode}|${autoRecommend}`;
+    // 💡 requestKey에 departureTime 추가하여 시간이 바뀌면 useEffect 재실행
+    const requestKey = `${tripData.departure}|${tripData.destination}|${tripData.passenger}|${tripData.loadKg}|${selectedMode}|${autoRecommend}|${departureTime}`;
 
     useEffect(() => {
         let isActive = true;
@@ -63,7 +68,8 @@ export default function S4_RouteResult() {
                 const request = buildRecommendRequest(readProfile(), {
                     ...tripData,
                     mode: selectedMode,
-                    autoRecommend
+                    autoRecommend,
+                    departureTime // API 요청 시 출발 시간 전달
                 });
 
                 const data = await getRouteRecommendation(request);
@@ -78,7 +84,7 @@ export default function S4_RouteResult() {
                     arrivalTime: formatArrival(route.duration_min),
                     distance: `${route.distance_km}km`,
                     fee: `${route.toll.toLocaleString()}원`,
-                    path: route.path || []      // 지도에 그릴 좌표
+                    path: route.path || []
                 }));
 
                 setRoutes(list);
@@ -97,18 +103,17 @@ export default function S4_RouteResult() {
         return () => {
             isActive = false;
         };
-        // requestKey 가 바뀔 때만 다시 추천을 받는다.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [requestKey]);
 
-    const selectedRoute =
-        routes.find((route) => route.id === selectedRouteId) || routes[0];
+    const selectedRoute = routes.find((route) => route.id === selectedRouteId) || routes[0];
 
     const handleStartNavigation = () => {
         const navigationData = {
             ...tripData,
             mode: selectedMode,
             autoRecommend,
+            departureTime, // 설정된 시간 정보 저장
             route: selectedRoute
         };
 
@@ -156,9 +161,7 @@ export default function S4_RouteResult() {
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-3">
-                    <p className="text-xs text-gray-500 mb-1">
-                        현재 적용 모드
-                    </p>
+                    <p className="text-xs text-gray-500 mb-1">현재 적용 모드</p>
                     <div className="flex items-center justify-between">
                         <p className="font-extrabold text-indigo-600">
                             {autoRecommend ? 'AI 자동 추천' : selectedMode}
@@ -174,12 +177,8 @@ export default function S4_RouteResult() {
                 {isLoading && (
                     <div className="px-4 pb-4">
                         <div className="bg-white rounded-2xl border border-gray-200 px-4 py-6 text-center">
-                            <p className="font-bold text-gray-700">
-                                성향에 맞는 경로를 찾는 중...
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                                도로·신호·경사 정보를 분석하고 있어요
-                            </p>
+                            <p className="font-bold text-gray-700">성향에 맞는 경로를 찾는 중...</p>
+                            <p className="text-xs text-gray-500 mt-1">도로·신호·경사 정보를 분석하고 있어요</p>
                         </div>
                     </div>
                 )}
@@ -187,12 +186,8 @@ export default function S4_RouteResult() {
                 {!isLoading && errorMessage && (
                     <div className="px-4 pb-4">
                         <div className="bg-white rounded-2xl border border-red-200 px-4 py-5">
-                            <p className="font-bold text-red-500 mb-1">
-                                경로를 불러오지 못했습니다
-                            </p>
-                            <p className="text-xs text-gray-600 whitespace-pre-line">
-                                {errorMessage}
-                            </p>
+                            <p className="font-bold text-red-500 mb-1">경로를 불러오지 못했습니다</p>
+                            <p className="text-xs text-gray-600 whitespace-pre-line">{errorMessage}</p>
                         </div>
                     </div>
                 )}
@@ -208,30 +203,22 @@ export default function S4_RouteResult() {
                                 tabIndex={0}
                                 onClick={() => setSelectedRouteId(route.id)}
                                 onKeyDown={(event) => {
-                                    if (
-                                        event.key === 'Enter' ||
-                                        event.key === ' '
-                                    ) {
+                                    if (event.key === 'Enter' || event.key === ' ') {
                                         setSelectedRouteId(route.id);
                                     }
                                 }}
-                                className={`min-w-[180px] flex-shrink-0 p-4 rounded-2xl cursor-pointer transition-all bg-white shadow-sm ${
-                                    isSelected
-                                        ? 'border-[2.5px] border-indigo-600'
-                                        : 'border border-gray-200 opacity-90'
-                                }`}
+                                className={`min-w-[180px] flex-shrink-0 p-4 rounded-2xl cursor-pointer transition-all bg-white shadow-sm ${isSelected
+                                    ? 'border-[2.5px] border-indigo-600'
+                                    : 'border border-gray-200 opacity-90'
+                                    }`}
                             >
                                 <div className="flex justify-between items-start gap-2 mb-1">
                                     <span
-                                        className={`font-extrabold text-[15px] ${
-                                            isSelected
-                                                ? 'text-indigo-600'
-                                                : 'text-gray-700'
-                                        }`}
+                                        className={`font-extrabold text-[15px] ${isSelected ? 'text-indigo-600' : 'text-gray-700'
+                                            }`}
                                     >
                                         {route.title}
                                     </span>
-
                                     <button
                                         type="button"
                                         className="flex-none text-[10px] text-gray-400 border border-gray-200 px-1.5 py-0.5 rounded bg-gray-50"
@@ -240,19 +227,15 @@ export default function S4_RouteResult() {
                                         상세
                                     </button>
                                 </div>
-
                                 <p className="text-xs text-gray-500 mb-2 leading-5">
                                     {route.description}
                                 </p>
-
                                 <div className="text-2xl font-black text-gray-900 tracking-tight my-1.5">
                                     {route.time}
                                 </div>
-
                                 <div className="text-sm text-gray-600 mb-1 font-medium">
                                     {route.arrivalTime}
                                 </div>
-
                                 <div className="text-xs text-gray-500 font-medium">
                                     {route.distance} · {route.fee}
                                 </div>
@@ -261,9 +244,11 @@ export default function S4_RouteResult() {
                     })}
                 </div>
 
+                {/*onClick 이벤트 추가 */}
                 <div className="px-4 flex gap-2">
                     <button
                         type="button"
+                        onClick={() => setIsTimeModalOpen(true)}
                         className="flex-none w-1/3 bg-gray-500 text-white py-4 rounded-xl font-bold text-[15px] shadow-sm active:bg-gray-600 transition-colors"
                     >
                         다른시간 출발
@@ -280,15 +265,19 @@ export default function S4_RouteResult() {
                 </div>
             </div>
 
-            <style>{`
-                .hide-scrollbar::-webkit-scrollbar {
-                    display: none;
-                }
+            {/* 💡 바텀 시트 모달 컴포넌트 렌더링 */}
+            <DepartureTimeModal
+                isOpen={isTimeModalOpen}
+                onClose={() => setIsTimeModalOpen(false)}
+                initialTime={departureTime}
+                onConfirm={(newTime) => {
+                    setDepartureTime(newTime);
+                }}
+            />
 
-                .hide-scrollbar {
-                    -ms-overflow-style: none;
-                    scrollbar-width: none;
-                }
+            <style>{`
+                .hide-scrollbar::-webkit-scrollbar { display: none; }
+                .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
         </div>
     );

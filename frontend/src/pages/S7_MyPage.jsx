@@ -9,6 +9,7 @@ export default function S7() {
             <TopNavBar title="마이페이지" />
 
             <div className="p-6">
+                {/* 프로필 요약 카드 */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 flex items-center gap-4">
                     <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center text-2xl">😎</div>
                     <div>
@@ -17,6 +18,7 @@ export default function S7() {
                     </div>
                 </div>
 
+                {/* 메뉴 리스트 */}
                 <div className="bg-white rounded-2xl shadow-sm divide-y divide-gray-100 overflow-hidden">
                     <div
                         className="p-5 flex justify-between items-center cursor-pointer hover:bg-gray-50"
@@ -26,8 +28,11 @@ export default function S7() {
                         <span className="text-gray-400">→</span>
                     </div>
 
-                    {/* 성향 설문 다시하기 삭제 (홈/옵션에서 매번 설정하므로 불필요) */}
-                    <div className="p-5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
+                    {/* 💡 여기에 onClick 이벤트를 추가했습니다!!!*/}
+                    <div
+                        className="p-5 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+                        onClick={() => navigate('/S7a_history')}
+                    >
                         <span className="font-bold text-gray-700">주행 기록 및 피드백 내역</span>
                         <span className="text-gray-400">→</span>
                     </div>
